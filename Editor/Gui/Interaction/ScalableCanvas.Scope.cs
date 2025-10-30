@@ -49,13 +49,15 @@ public abstract partial class ScalableCanvas
     // Todo: merge into GetScopeForCanvasArea
     internal void SetScopeToCanvasArea(ImRect areaOnCanvas, bool flipY = false, float paddingX = 0, float paddingY = 0)
     {
+        WindowSize = ImGui.GetContentRegionMax() - ImGui.GetWindowContentRegionMin();
+
         var areaSize = areaOnCanvas.GetSize();
         if (areaSize.X == 0)
             areaSize.X = 1;
 
         if (areaSize.Y == 0)
             areaSize.Y = 1;
-
+        
         var newScale = (WindowSize - new Vector2(paddingX, paddingY));
         newScale.X = MathF.Max(newScale.X, 20);
         newScale.Y = MathF.Max(newScale.Y, 20);
@@ -72,7 +74,6 @@ public abstract partial class ScalableCanvas
 
         ScaleTarget = newScale;
 
-        // FIXME: This is looks like a bug...
         var isScaleTargetInvalid = ScaleTarget.X == 0
                                    || ScaleTarget.Y == 0
                                    || float.IsNaN(ScaleTarget.X)
@@ -81,8 +82,7 @@ public abstract partial class ScalableCanvas
                                    || float.IsInfinity(ScaleTarget.Y);
         if (isScaleTargetInvalid)
         {
-            //Debug.Assert(false); // should never happen
-            Scale = ScaleTarget;
+            ScaleTarget = Scale;
         }
 
         if (float.IsNaN(ScrollTarget.X) || float.IsNaN(ScrollTarget.Y) || float.IsInfinity(ScrollTarget.X) || float.IsInfinity(ScrollTarget.Y))
@@ -95,7 +95,13 @@ public abstract partial class ScalableCanvas
     internal void SetVerticalScopeToCanvasArea(ImRect area, bool flipY = false, ScalableCanvas? parent = null)
     {
         WindowSize = ImGui.GetContentRegionMax() - ImGui.GetWindowContentRegionMin();
-        ScaleTarget.Y = WindowSize.Y / area.GetSize().Y;
+        var sizeY = area.GetSize().Y;
+        if (MathF.Abs(area.GetSize().Y) < 0.0001f)
+        {
+            sizeY = 1;
+        }
+        
+        ScaleTarget.Y = WindowSize.Y / sizeY;
 
         if (flipY)
         {

@@ -48,7 +48,7 @@ internal sealed class CurvePlotCanvas
 
         if (!_paused)
         {
-            _canvas.SetScopeToCanvasArea(new ImRect(0, min, 1, max), flipY: true);
+            //_canvas.SetScopeToCanvasArea(new ImRect(0, min, 1, max), flipY: true);
             _lastValue = value;
         }
             

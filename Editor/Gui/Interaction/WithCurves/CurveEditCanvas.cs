@@ -89,8 +89,9 @@ internal abstract class CurveEditCanvas : ScalableCanvas, ITimeObjectManipulatio
             var sampledValue = (float)curve.GetSampledValue(hoverTime);
             var posOnCanvas = new Vector2(hoverTime, sampledValue);
             var posOnScreen = TransformPosition(posOnCanvas)
-                              - new Vector2(KeyframeIconWidth / 2 -2 , KeyframeIconWidth / 2 -1);
-            Icons.Draw(Icon.CurveKeyframe, posOnScreen);
+                              - new Vector2(KeyframeIconWidth / 2 -1 , KeyframeIconWidth / 2 -1  );
+            
+            Icons.DrawIconAtScreenPosition(Icon.CurveKeyframe, posOnScreen);
             var drawlist = ImGui.GetWindowDrawList();
             drawlist.AddText(posOnScreen + Vector2.One*20, UiColors.Gray, $"Insert at\n{hoverTime:0.00}  {sampledValue:0.00}");
         }

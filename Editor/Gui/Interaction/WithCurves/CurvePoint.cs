@@ -30,16 +30,10 @@ internal static class CurvePoint
         ImGui.SetCursorPos(pTopLeft - _curveEditCanvas.WindowPos + _fixOffset);
         ImGui.InvisibleButton("key" + vDef.GetHashCode(), _controlSize);
         DrawUtils.DebugItemRect();
-
-        if (ImGui.IsItemHovered())
-        {
-            //ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-        }
-            
+        
         ImGui.PushFont(Icons.IconFont);
-        var fadeFactor = ImGui.IsItemHovered() ? 1f : 0.9f;
-        var color = Color.White.Fade(fadeFactor);
-        _drawList.AddText(pTopLeft + new Vector2(5,4) , color, isSelected ? _keyframeIconSelected : _keyframeIcon);
+        Icons.DrawIconAtScreenPosition( isSelected ? Icon.CurveKeyframeSelected : Icon.CurveKeyframe, 
+                                        new Vector2((int)(pTopLeft.X + 4), (int)(pTopLeft.Y+4)));
         ImGui.PopFont();
 
         curveEditing?.HandleCurvePointDragging(compositionSymbolId, _vDef, isSelected);
