@@ -1,0 +1,308 @@
+# Enhanced Azure DevOps Pipeline for TiXL with comprehensive quality checks
+# Supports multi-stage quality gates, SonarQube integration, and comprehensive analysis
+
+trigger:
+- main
+- develop
+
+pr:
+- main
+- develop
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  dotnetVersion: '9.0.x'
+  solutionPath: 'TiXL.sln'
+  sonarHostUrl: 'https://your-sonarqube-instance.com'
+  sonarProjectKey: 'tixl-realtime-graphics'
+
+stages:
+- stage: CodeQuality
+  displayName: 'Code Quality Analysis'
+  jobs:
+  - job: SonarAnalysis
+    displayName: 'SonarQube Analysis'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: SonarQubePrepare@5
+      displayName: 'Prepare SonarQube Analysis'
+      inputs:
+        SonarQube: 'SonarQube'
+        scannerMode: 'MSBuild'
+        projectKey: 'tixl-realtime-graphics'
+        projectName: 'TiXL Real-time Graphics'
+        extraProperties: |
+          # Additional properties for C# analysis
+          sonar.cs.analyzer.projectOutPaths=/
+          sonar.cs.analyzer.projectHomePaths=/
+          sonar.exclusions=**/bin/**,**/obj/**,**/.vs/**,**/Generated/**/*.cs
+          sonar.inclusions=**/*.cs
+          sonar.cs.dotcover.reportsPaths=**/*.coverage
+          sonar.cs.opencover.reportsPaths=**/coverage.opencover.xml
+          sonar.qualitygate.wait=true
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+
+    - task: PowerShell@2
+      displayName: 'Pre-build quality check'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/check-quality.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -BuildConfiguration "$(buildConfiguration)"'
+        errorActionPreference: 'continue'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Build with SonarQube analysis'
+      inputs:
+        command: 'build'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) /p:TreatWarningsAsErrors=true /p:EnforceCodeStyleInBuild=true /p:SonarQube=true /v:minimal'
+      continueOnError: false
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish build artifacts'
+      inputs:
+        command: 'publish'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+
+    - task: SonarQubeAnalyze@5
+      displayName: 'Run SonarQube Analysis'
+      inputs:
+        SonarQube: 'SonarQube'
+
+    - task: SonarQubeQualityGate@5
+      displayName: 'Check Quality Gate'
+      inputs:
+        SonarQube: 'SonarQube'
+
+- stage: StaticAnalysis
+  displayName: 'Static Analysis'
+  dependsOn: CodeQuality
+  jobs:
+  - job: ComprehensiveStaticAnalysis
+    displayName: 'Comprehensive Analysis'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+
+    - task: PowerShell@2
+      displayName: 'Run Code Metrics Analysis'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/run-metrics-analysis.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/metrics-report.json" -Format "json"'
+        errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Detect Code Duplication'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/run-duplication-analysis.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/duplication-report.md"'
+        errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Calculate Technical Debt'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/run-debt-analysis.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/debt-report.json"'
+        errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Security Analysis'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/run-security-analysis.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/security-report.json"'
+        errorActionPreference: 'continue'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Analysis Reports'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'quality-analysis'
+        publishLocation: 'Container'
+
+- stage: Test
+  displayName: 'Run Tests'
+  dependsOn: StaticAnalysis
+  jobs:
+  - job: RunTests
+    displayName: 'Unit Tests with Coverage'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore test dependencies'
+      inputs:
+        command: 'restore'
+        projects: '**/*Tests.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run tests with coverage'
+      inputs:
+        command: 'test'
+        projects: '**/*Tests.csproj'
+        arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura'
+        publishTestResults: true
+
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '**/coverage.cobertura.xml'
+
+- stage: Performance
+  displayName: 'Performance Analysis'
+  dependsOn: Test
+  condition: succeeded()
+  jobs:
+  - job: PerformanceAnalysis
+    displayName: 'Performance Benchmarks'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore benchmark dependencies'
+      inputs:
+        command: 'restore'
+        projects: '**/*Benchmark.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run performance benchmarks'
+      inputs:
+        command: 'run'
+        projects: '**/*Benchmark.csproj'
+        arguments: '--configuration $(buildConfiguration) -- --exporters json --output $(Build.ArtifactStagingDirectory)/benchmark-results.json'
+      continueOnError: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish benchmark results'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'performance-results'
+        publishLocation: 'Container'
+
+- stage: QualityGates
+  displayName: 'Quality Gates'
+  dependsOn:
+  - CodeQuality
+  - StaticAnalysis
+  - Test
+  - Performance
+  condition: always()
+  jobs:
+  - job: QualityGateCheck
+    displayName: 'Final Quality Gate Check'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Comprehensive Quality Check'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/run-quality-gates.ps1'
+        arguments: '-BuildArtifactPath "$(Build.ArtifactStagingDirectory)" -OutputPath "$(Build.ArtifactStagingDirectory)/quality-gate-report.md" -FailOnQualityGateFailure'
+        errorActionPreference: 'stop'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish quality gate report'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'quality-gate-reports'
+        publishLocation: 'Container'
+
+- stage: Package
+  displayName: 'Create Packages'
+  dependsOn: QualityGates
+  condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop'))
+  jobs:
+  - job: CreatePackages
+    displayName: 'NuGet Packages'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Create NuGet packages'
+      inputs:
+        command: 'pack'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) --no-build /p:TreatWarningsAsErrors=true /p:PackageOutputPath=$(Build.ArtifactStagingDirectory)'
+
+    - task: NuGetCommand@2
+      displayName: 'Push packages to internal feed'
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      inputs:
+        command: 'push'
+        packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg'
+        nuGetFeedType: 'internal'
+        publishVstsFeed: '$(System.TeamProject)/$(Build.Repository.Name)/_packaging/$(System.TeamProject)/nuget/v3/index.json'
+        allowPackageConflicts: false
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish packages'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'packages'
+        publishLocation: 'Container'
+
+# Post-build stages
+- stage: Cleanup
+  displayName: 'Cleanup'
+  dependsOn: 
+  - Build
+  - Test
+  - Package
+  - QualityGates
+  condition: always()
+  jobs:
+  - job: Cleanup
+    displayName: 'Cleanup Resources'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Clean temporary files'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Remove-Item -Path "**/bin" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "**/obj" -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Cleanup completed"

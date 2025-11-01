@@ -1,0 +1,45 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: detect-private-key
+
+  - repo: https://github.com/dotnet/format
+    rev: v0.4.1148
+    hooks:
+      - id: format
+        language_version: '8.0'
+
+  - repo: https://github.com/dotnet/roslyn-analyzers
+    rev: v3.3.5
+    hooks:
+      - id: roslyn-analyzers
+        files: '\.cs$'
+
+  - repo: local
+    hooks:
+      - id: dotnet-retire
+        name: dotnet-retire
+        entry: bash -c 'dotnet tool install --global dotnet-retire --version 3.1.0 && dotnet retire'
+        language: system
+        files: '\.csproj$'
+
+      - id: nuget-audit
+        name: nuget-audit
+        entry: bash -c 'dotnet restore --verbosity quiet --audit'
+        language: system
+        files: '\.csproj$'
+        pass_filenames: false
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package.lock.json

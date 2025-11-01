@@ -1,0 +1,179 @@
+# CODEOWNERS for TiXL automated review assignments
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owners - default reviewers for everything
+* @tixl3d/core-team
+
+# Core modules - require graphics and core team review
+/Core/ @tixl3d/core-team @tixl3d/graphics-team
+/Core/Rendering/ @tixl3d/graphics-team @tixl3d/core-team
+/Core/Operator/ @tixl3d/core-team @tixl3d/operators-team
+/Core/Animation/ @tixl3d/core-team @tixl3d/graphics-team
+/Core/Audio/ @tixl3d/core-team @tixl3d/audio-team
+/Core/DataTypes/ @tixl3d/core-team
+/Core/Compilation/ @tixl3d/core-team @tixl3d/devops-team
+/Core/IO/ @tixl3d/core-team
+/Core/Model/ @tixl3d/core-team
+/Core/Resource/ @tixl3d/core-team
+
+# Operators module - requires operators and relevant domain team review
+/Operators/ @tixl3d/operators-team @tixl3d/core-team
+/Operators/TypeOperators/ @tixl3d/operators-team
+/Operators/TypeOperators/Collections/ @tixl3d/operators-team
+/Operators/TypeOperators/Gfx/ @tixl3d/graphics-team @tixl3d/operators-team
+/Operators/TypeOperators/NET/ @tixl3d/operators-team @tixl3d/core-team
+/Operators/TypeOperators/Values/ @tixl3d/operators-team
+/Operators/examples/ @tixl3d/operators-team @tixl3d/docs-team
+/Operators/user/ @tixl3d/operators-team
+
+# Editor module - requires UI and core team review
+/Editor/ @tixl3d/ui-team @tixl3d/core-team
+/Editor/App/ @tixl3d/core-team @tixl3d/ui-team
+/Editor/Compilation/ @tixl3d/devops-team @tixl3d/core-team
+/Editor/Gui/ @tixl3d/ui-team
+/Editor/Gui/Graph/ @tixl3d/ui-team @tixl3d/graphics-team
+/Editor/Gui/InputUi/ @tixl3d/ui-team
+/Editor/Gui/OpUis/ @tixl3d/ui-team @tixl3d/operators-team
+/Editor/Properties/ @tixl3d/ui-team
+
+# Resources - requires core team review
+/Resources/ @tixl3d/core-team
+
+# Documentation - requires docs team review
+/docs/ @tixl3d/docs-team
+/*.md @tixl3d/docs-team
+README.md @tixl3d/docs-team
+CHANGELOG.md @tixl3d/docs-team
+CONTRIBUTION_GUIDELINES.md @tixl3d/docs-team @tixl3d/core-team
+DEVELOPER_ONBOARDING.md @tixl3d/docs-team @tixl3d/core-team
+
+# CI/CD and DevOps - requires devops team review
+/.github/ @tixl3d/devops-team
+/.github/workflows/ @tixl3d/devops-team
+/docs/azure-pipelines.yml @tixl3d/devops-team
+/docs/build.yml @tixl3d/devops-team
+/docs/check-warnings.ps1 @tixl3d/devops-team @tixl3d/core-team
+/docs/Directory.Build.props @tixl3d/devops-team @tixl3d/core-team
+
+# Testing infrastructure - requires core team review
+/Tests/ @tixl3d/core-team
+/*Tests.csproj @tixl3d/core-team
+Benchmarks/ @tixl3d/core-team @tixl3d/performance-team
+IntegrationTests/ @tixl3d/core-team
+
+# Configuration files - require devops team review
+*.sln @tixl3d/devops-team @tixl3d/core-team
+*.csproj @tixl3d/devops-team @tixl3d/core-team
+Directory.Build.props @tixl3d/devops-team @tixl3d/core-team
+EditorConfig @tixl3d/devops-team @tixl3d/core-team
+
+# Security-sensitive files - require security team review
+**/Security/ @tixl3d/security-team @tixl3d/core-team
+**/Authentication/ @tixl3d/security-team @tixl3d/core-team
+**/Authorization/ @tixl3d/security-team @tixl3d/core-team
+**/Encryption/ @tixl3d/security-team @tixl3d/core-team
+
+# Platform-specific code
+**/Platforms/ @tixl3d/core-team @tixl3d/graphics-team
+**/Windows/ @tixl3d/core-team
+**/Linux/ @tixl3d/core-team
+**/macOS/ @tixl3d/core-team
+
+# Graphics-specific files
+**/*.hlsl @tixl3d/graphics-team
+**/*.hlsl.cs @tixl3d/graphics-team
+**/Shaders/ @tixl3d/graphics-team
+**/Materials/ @tixl3d/graphics-team
+**/Textures/ @tixl3d/graphics-team
+
+# Audio-specific files
+**/*.wav @tixl3d/audio-team
+**/*.mp3 @tixl3d/audio-team
+**/Audio/ @tixl3d/audio-team
+**/Music/ @tixl3d/audio-team
+
+# Plugin and extension files
+**/Plugins/ @tixl3d/operators-team @tixl3d/core-team
+**/Extensions/ @tixl3d/operators-team @tixl3d/core-team
+**/Addins/ @tixl3d/operators-team @tixl3d/core-team
+
+# Build scripts and automation
+**/build.ps1 @tixl3d/devops-team
+**/build.sh @tixl3d/devops-team
+**/deploy.ps1 @tixl3d/devops-team
+**/deploy.sh @tixl3d/devops-team
+**/setup.ps1 @tixl3d/devops-team @tixl3d/core-team
+**/setup.sh @tixl3d/devops-team @tixl3d/core-team
+
+# Performance and profiling
+**/Performance/ @tixl3d/performance-team @tixl3d/core-team
+**/Profiling/ @tixl3d/performance-team @tixl3d/core-team
+**/Benchmarks/ @tixl3d/performance-team @tixl3d/core-team
+
+# Internationalization and localization
+**/i18n/ @tixl3d/docs-team @tixl3d/ui-team
+**/l10n/ @tixl3d/docs-team @tixl3d/ui-team
+**/Localization/ @tixl3d docs-team @tixl3d/ui-team
+
+# Dependencies and third-party code
+**/lib/ @tixl3d/core-team @tixl3d/security-team
+**/thirdparty/ @tixl3d/core-team @tixl3d/security-team
+**/external/ @tixl3d/core-team @tixl3d/security-team
+**/vendor/ @tixl3d/core-team @tixl3d/security-team
+
+# Database and data files
+**/*.db @tixl3d/core-team
+**/*.sqlite @tixl3d/core-team
+**/*.sqlite3 @tixl3d/core-team
+**/Database/ @tixl3d/core-team
+**/Data/ @tixl3d/core-team
+
+# Temporary and generated files (auto-approvals for these patterns)
+/**/bin/ @tixl3d/core-team
+/**/obj/ @tixl3d/core-team
+/**/bin/** @tixl3d/core-team
+/**/obj/** @tixl3d/core-team
+/**/Debug/ @tixl3d/core-team
+/**/Release/ @tixl3d/core-team
+/**/.vs/ @tixl3d/core-team
+/**/.vscode/ @tixl3d/core-team
+**/.idea/ @tixl3d/core-team
+**/*.suo @tixl3d/core-team
+**/*.user @tixl3d/core-team
+**/*.swp @tixl3d/core-team
+**/*.swo @tixl3d/corevelope
+
+# Documentation assets
+/docs/assets/ @tixl3d/docs-team
+/docs/images/ @tixl3d/docs-team
+/docs/videos/ @tixl3d/docs-team
+/docs/examples/ @tixl3d/docs-team @tixl3d/operators-team
+
+# Release notes and versioning
+RELEASE_NOTES.md @tixl3d/docs-team
+RELEASE_NOTES.txt @tixl3d/docs-team
+version.txt @tixl3d/docs-team @tixl3d/devops-team
+
+# GitHub templates and workflows
+/.github/ISSUE_TEMPLATE/ @tixl3d/docs-team
+/.github/PULL_REQUEST_TEMPLATE.md @tixl3d/docs-team @tixl3d/core-team
+/.github/FUNDING.yml @tixl3d/docs-team
+/.github/SECURITY.md @tixl3d/security-team @tixl3d/docs-team
+
+# Specific file assignments with exact paths
+/docs/cicd_quality_gates_setup.md @tixl3d/devops-team @tixl3d/docs-team
+/.github/workflows/*.yml @tixl3d/devops-team
+/.github/workflows/ci-quality-gates.yml @tixl3d/devops-team @tixl3d/core-team
+/.github/workflows/security-scanning.yml @tixl3d/security-team @tixl3d/devops-team
+/.github/workflows/release-validation.yml @tixl3d/devops-team @tixl3d/docs-team
+
+# Emergency override patterns (senior team members can override any review requirements)
+# These patterns allow bypassing review requirements in emergency situations
+**/hotfix/* @tixl3d/senior-team
+**/emergency/* @tixl3d/senior-team
+**/critical-fix/* @tixl3d/senior-team
+
+# Experimental features (lighter review requirements)
+/**/experimental/* @tixl3d/core-team
+/**/beta/* @tixl3d/core-team
+/**/alpha/* @tixl3d/core-team

@@ -1,0 +1,328 @@
+# Pre-commit hooks for TiXL dependency management
+# Add this to your .pre-commit-config.yaml file
+
+repos:
+  # Standard hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+
+  # PowerShell script linting
+  - repo: https://github.com/PowerShell/PSScriptAnalyzer
+    rev: 1.20.0
+    hooks:
+      - id: PSScriptAnalyzer
+        args:
+          - -Path
+          - "docs/scripts"
+          - -EnableExit
+          - "false"
+
+  # TiXL Dependency Management Hooks
+  - repo: local
+    hooks:
+      # Quick dependency security check
+      - id: tixl-dependency-security-check
+        name: TiXL Dependency Security Check
+        entry: pwsh
+        language: system
+        args:
+          - "-ExecutionPolicy"
+          - "Bypass"
+          - "-File"
+          - "docs/scripts/vulnerability-scanner.ps1"
+          - "-ProjectPath"
+          - "TiXL.sln"
+          - "-Severity"
+          - "High"
+          - "-OutputPath"
+          - "./.git/dependency-check"
+        files: '.*\.(cs|vb|cpp|h|hpp|sln|csproj|vbproj|vcxproj|vcxproj.filters)$'
+        pass_filenames: false
+        stages: [commit]
+
+      # License compliance quick check
+      - id: tixl-license-compliance-check
+        name: TiXL License Compliance Check
+        entry: pwsh
+        language: system
+        args:
+          - "-ExecutionPolicy"
+          - "Bypass"
+          - "-File"
+          - "docs/scripts/license-compliance.ps1"
+          - "-ProjectPath"
+          - "TiXL.sln"
+          - "-OutputPath"
+          - "./.git/license-check"
+        files: '.*\.(cs|vb|cpp|h|hpp|sln|csproj|vbproj|vcxproj|vcxproj.filters)$'
+        pass_filenames: false
+        stages: [commit]
+
+      # Project file validation
+      - id: tixl-project-file-validation
+        name: TiXL Project File Validation
+        entry: pwsh
+        language: system
+        args:
+          - "-ExecutionPolicy"
+          - "Bypass"
+          - "-Command"
+          - |
+            # Check for common project file issues
+            $files = git diff --cached --name-only | Where-Object { $_ -match '\.(cs|vb)proj$' }
+            foreach ($file in $files) {
+              if (Test-Path $file) {
+                $content = Get-Content $file -Raw
+                
+                # Check for prohibited packages
+                $prohibitedPackages = @(
+                  'System.Data.SQLite',
+                  'MySql.Data',
+                  'Oracle.ManagedDataAccess',
+                  'Microsoft.SqlServer.Management.Smo'
+                )
+                
+                foreach ($pkg in $prohibitedPackages) {
+                  if ($content -match "<PackageReference Include=""$pkg""") {
+                    Write-Error "Prohibited package detected: $pkg"
+                    exit 1
+                  }
+                }
+                
+                # Check for missing version constraints
+                if ($content -match '<PackageReference Include="[^"]+"\s*/>') {
+                  Write-Warning "Package reference without version constraint detected in $file"
+                }
+                
+                # Check for excessive warning suppressions
+                $suppressions = ($content | Select-String -Pattern '<NoWarn>' -AllMatches).Matches.Count
+                if ($suppressions -gt 5) {
+                  Write-Warning "Excessive warning suppressions in $file ($suppressions)"
+                }
+              }
+            }
+            exit 0
+        files: '.*\.(cs|vb)proj$'
+        pass_filenames: true
+        stages: [commit]
+
+      # Dependency tree validation
+      - id: tixl-dependency-tree-validation
+        name: TiXL Dependency Tree Validation
+        entry: pwsh
+        language: system
+        args:
+          - "-ExecutionPolicy"
+          - "Bypass"
+          - "-File"
+          - "docs/scripts/dependency-analyzer.ps1"
+          - "-SolutionPath"
+          - "TiXL.sln"
+          - "-OutputPath"
+          - "./.git/dependency-tree-check"
+        files: '.*\.(cs|sln|csproj)$'
+        pass_filenames: false
+        stages: [commit]
+
+      # Package manifest validation
+      - id: tixl-package-manifest-validation
+        name: TiXL Package Manifest Validation
+        entry: pwsh
+        language: system
+        args:
+          - "-ExecutionPolicy"
+          - "Bypass"
+          - "-Command"
+          - |
+            # Validate package references in project files
+            $files = git diff --cached --name-only | Where-Object { $_ -match '\.(cs|vb)proj$' }
+            $hasIssues = $false
+            
+            foreach ($file in $files) {
+              if (Test-Path $file) {
+                [xml]$project = Get-Content $file
+                $packageRefs = $project.Project.ItemGroup.PackageReference
+                
+                foreach ($ref in $packageRefs) {
+                  # Check for missing version
+                  if (!$ref.Version) {
+                    Write-Error "Missing version for package $($ref.Include) in $file"
+                    $hasIssues = $true
+                  }
+                  
+                  # Check for prerelease in stable branches
+                  if ($ref.Version -match '(alpha|beta|rc|preview)' -and $env:GIT_BRANCH -match 'main|develop') {
+                    Write-Error "Prerelease package $($ref.Include) v$($ref.Version) detected in stable branch: $file"
+                    $hasIssues = $true
+                  }
+                  
+                  # Check for suspicious package names
+                  $suspiciousPatterns = @(
+                    '.*test.*',
+                    '.*example.*',
+                    '.*demo.*',
+                    '.*sample.*'
+                  )
+                  
+                  foreach ($pattern in $suspiciousPatterns) {
+                    if ($ref.Include -match $pattern -and $env:GIT_BRANCH -match 'main') {
+                      Write-Warning "Development/testing package $($ref.Include) detected in stable branch: $file"
+                    }
+                  }
+                }
+              }
+            }
+            
+            if ($hasIssues) {
+              exit 1
+            }
+        files: '.*\.(cs|vb)proj$'
+        pass_filenames: true
+        stages: [commit]
+
+      # Security vulnerability quick scan
+      - id: tixl-cve-lookup
+        name: TiXL CVE Lookup for Known Vulnerable Packages
+        entry: pwsh
+        language: system
+        args:
+          - "-ExecutionPolicy"
+          - "Bypass"
+          - "-Command"
+          - |
+            # Quick check for packages with known CVEs
+            $knownVulnerable = @{
+              'Newtonsoft.Json' = @('12.0.3', '13.0.1')
+              'System.Text.Encodings.Web' = @('4.0.4', '4.0.5')
+              'Microsoft.AspNetCore.Mvc' = @('2.1.0', '2.1.1', '2.1.2')
+              'Microsoft.AspNetCore.Mvc.Core' = @('2.1.0', '2.1.1', '2.1.2')
+            }
+            
+            $files = git diff --cached --name-only | Where-Object { $_ -match '\.(cs|vb)proj$' }
+            $foundVulnerable = @()
+            
+            foreach ($file in $files) {
+              if (Test-Path $file) {
+                [xml]$project = Get-Content $file
+                $packageRefs = $project.Project.ItemGroup.PackageReference
+                
+                foreach ($ref in $packageRefs) {
+                  $packageName = $ref.Include
+                  $packageVersion = $ref.Version
+                  
+                  if ($knownVulnerable.ContainsKey($packageName)) {
+                    foreach ($vulnVersion in $knownVulnerable[$packageName]) {
+                      if ($packageVersion -eq $vulnVersion) {
+                        $foundVulnerable += "$packageName v$packageVersion (CVE known)"
+                        Write-Error "Potentially vulnerable package detected: $packageName v$packageVersion"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            
+            if ($foundVulnerable.Count -gt 0) {
+              Write-Output "Found $( $foundVulnerable.Count ) potentially vulnerable packages:"
+              $foundVulnerable | ForEach-Object { Write-Output "  - $_" }
+              exit 1
+            }
+        files: '.*\.(cs|vb)proj$'
+        pass_filenames: true
+        stages: [commit]
+
+      # Git hooks for dependency update workflows
+      - id: tixl-dependency-update-hook
+        name: TiXL Dependency Update Hook
+        entry: pwsh
+        language: system
+        args:
+          - "-ExecutionPolicy"
+          - "Bypass"
+          - "-Command"
+          - |
+            # Handle dependency update commits
+            $commitMessage = $env:COMMIT_MESSAGE
+            if ($commitMessage -match 'dependency.*update|update.*dependency') {
+              Write-Host "Dependency update commit detected. Running additional validations..."
+              
+              # Check if update was done through proper workflow
+              $branchName = $env:GIT_BRANCH
+              if ($branchName -notmatch 'dependency-updates?') {
+                Write-Warning "Dependency update on branch '$branchName' - consider using 'dependency-updates' branch naming convention"
+              }
+              
+              # Run quick build test
+              try {
+                & dotnet build --configuration Release --no-restore 2>$null
+                if ($LASTEXITCODE -ne 0) {
+                  Write-Error "Build failed after dependency update"
+                  exit 1
+                }
+              }
+              catch {
+                Write-Warning "Unable to run build test: $_"
+              }
+              
+              Write-Host "Dependency update validation completed successfully"
+            }
+        pass_filenames: false
+        stages: [commit-msg]
+
+      # Post-commit dependency health check
+      - id: tixl-post-commit-health-check
+        name: TiXL Post-Commit Health Check
+        entry: pwsh
+        language: system
+        args:
+          - "-ExecutionPolicy"
+          - "Bypass"
+          - "-File"
+          - "docs/scripts/dependency-audit.ps1"
+          - "-SolutionPath"
+          - "TiXL.sln"
+          - "-OutputPath"
+          - "./.git/health-check"
+          - "-Severity"
+          - "Medium"
+        pass_filenames: false
+        stages: [post-commit]
+
+# Configuration for additional security checks
+exclude: |
+  (?x)^(
+      .*/\..*|              # Hidden files/directories
+      .*/tests?/.*|         # Test files
+      .*/test/.*|           # Test files
+      .*/spec/.*|           # Spec files
+      .*\.test\..*|         # Test files
+      .*\.spec\..*|         # Spec files
+      docs/scripts/.*|      # Scripts directory (self-referential)
+      .git/.*               # Git internal files
+  )$
+
+# CI/CD integration settings
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
+    
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
+
+# Default language version for PowerShell
+default_language_version:
+  python: python3

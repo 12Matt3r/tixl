@@ -1,0 +1,71 @@
+{
+  "qualityGates": [
+    {
+      "name": "SonarQube Quality Gate",
+      "type": "SonarQube",
+      "thresholds": {
+        "coverage": 80,
+        "duplicated_lines_density": 3,
+        "maintainability_rating": "A",
+        "reliability_rating": "A",
+        "security_rating": "A",
+        "vulnerabilities": 0,
+        "code_smells": 50,
+        "bugs": 0,
+        "technical_debt": 4
+      },
+      "required": true
+    },
+    {
+      "name": "Code Coverage Gate",
+      "type": "Custom",
+      "thresholds": {
+        "line_coverage": 75,
+        "branch_coverage": 70,
+        "method_coverage": 80
+      },
+      "required": true
+    },
+    {
+      "name": "Technical Debt Gate",
+      "type": "Custom",
+      "thresholds": {
+        "debt_ratio": 5,
+        "sustainability_index": 0.8
+      },
+      "required": true
+    },
+    {
+      "name": "Performance Gate",
+      "type": "Custom",
+      "thresholds": {
+        "benchmark_execution_time": 5000,
+        "memory_allocation": 100
+      },
+      "required": false
+    },
+    {
+      "name": "Security Gate",
+      "type": "Custom",
+      "thresholds": {
+        "vulnerabilities": 0,
+        "security_hotspots": 5
+      },
+      "required": true
+    }
+  ],
+  "failureActions": [
+    {
+      "action": "failBuild",
+      "condition": "requiredGateFailed"
+    },
+    {
+      "action": "notifyTeam",
+      "condition": "anyGateFailed"
+    },
+    {
+      "action": "createIssue",
+      "condition": "criticalGateFailed"
+    }
+  ]
+}

@@ -1,0 +1,212 @@
+name: Build with Zero Warnings
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  analyze:
+    name: Static Analysis
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Run static analysis
+      run: |
+        $ErrorActionPreference = "Stop"
+        dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true /p:EnforceCodeStyleInBuild=true
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "Build failed with warnings or errors"
+          exit $LASTEXITCODE
+        }
+        
+    - name: Upload analysis results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: analysis-results
+        path: |
+          **/*.log
+          **/TestResults/**/*.trx
+
+  test:
+    name: Run Tests
+    runs-on: windows-latest
+    needs: analyze
+    
+    steps:
+    - uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Run tests
+      run: |
+        dotnet test --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./TestResults/cobertura.coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  package:
+    name: Create Packages
+    runs-on: windows-latest
+    needs: [analyze, test]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build packages
+      run: |
+        dotnet pack --configuration Release --no-build /p:TreatWarningsAsErrors=true
+        
+    - name: Upload packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: packages
+        path: '**/*.nupkg'
+        retention-days: 30
+
+  deploy:
+    name: Deploy to NuGet
+    runs-on: windows-latest
+    needs: package
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Download packages
+      uses: actions/download-artifact@v4
+      with:
+        name: packages
+        path: packages
+        
+    - name: Deploy to NuGet
+      run: |
+        $ErrorActionPreference = "Stop"
+        foreach ($nupkg in Get-ChildItem packages\*.nupkg) {
+          Write-Host "Deploying $($nupkg.Name)"
+          dotnet nuget push $nupkg.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+        }
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+  warning-report:
+    name: Generate Warning Report
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: always() && (needs.analyze.result == 'failure' || github.event_name == 'pull_request')
+    
+    steps:
+    - uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Analyze warnings
+      run: |
+        # Create a script to capture build warnings
+        $script = @'
+        $ErrorActionPreference = "Continue"
+        $buildOutput = & dotnet build --configuration Release --no-restore 2>&1
+        $buildOutput | Out-File -FilePath "build-output.log" -Encoding UTF8
+        
+        # Extract warnings
+        $warnings = $buildOutput | Select-String -Pattern "\s+warning CS\d+:" 
+        if ($warnings) {
+          Write-Host "## Build Warnings Detected" >> warning-report.md
+          Write-Host "" >> warning-report.md
+          $warnings | ForEach-Object {
+            $warning = $_.ToString().Trim()
+            Write-Host "- $warning" >> warning-report.md
+          }
+          Write-Host "" >> warning-report.md
+          Write-Host "Please fix these warnings before merging." >> warning-report.md
+        } else {
+          Write-Host "## ✅ No warnings detected" >> warning-report.md
+          Write-Host "" >> warning-report.md
+          Write-Host "Great job! The build completed without any warnings." >> warning-report.md
+        }
+        
+        # Create a summary
+        Write-Host "# Build Summary" >> warning-report.md
+        Write-Host "" >> warning-report.md
+        Write-Host "**Build Status:** $(if($LASTEXITCODE -eq 0) { '✅ Success' } else { '❌ Failed' })" >> warning-report.md
+        Write-Host "" >> warning-report.md
+        Write-Host "**Timestamp:** $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')" >> warning-report.md
+        Write-Host "" >> warning-report.md
+        Write-Host "**Repository:** ${{ github.repository }}" >> warning-report.md
+        Write-Host "**Commit:** ${{ github.sha }}" >> warning-report.md
+        Write-Host "**Branch:** ${{ github.ref_name }}" >> warning-report.md
+        '@
+        
+        $script | Out-File -FilePath "analyze-warnings.ps1" -Encoding UTF8
+        
+        pwsh analyze-warnings.ps1
+        
+    - name: Upload warning report
+      uses: actions/upload-artifact@v4
+      with:
+        name: warning-report
+        path: |
+          warning-report.md
+          build-output.log
+          
+    - name: Comment PR with warnings
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          if (fs.existsSync('warning-report.md')) {
+            const report = fs.readFileSync('warning-report.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+          }

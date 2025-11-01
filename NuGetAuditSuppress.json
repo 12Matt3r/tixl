@@ -1,0 +1,14 @@
+{
+  "version": "1.1",
+  "suppressions": [
+    {
+      "id": "NU1903",
+      "packageId": "Newtonsoft.Json",
+      "packageVersion": "13.0.1",
+      "justification": "Planned upgrade to 13.0.3 in next release. Current version works in isolated context.",
+      "createdBy": "security-team",
+      "createdOn": "2025-11-01",
+      "expiresOn": "2025-12-01"
+    }
+  ]
+}

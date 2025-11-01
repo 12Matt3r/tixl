@@ -1,0 +1,151 @@
+{
+  "updatePolicies": {
+    "safe": {
+      "maxMajorVersionIncrease": 0,
+      "maxMinorVersionIncrease": 2,
+      "maxPatchVersionIncrease": 999,
+      "excludePrerelease": true,
+      "excludePreview": true,
+      "excludeBeta": true,
+      "excludeRC": true,
+      "requireTesting": true,
+      "allowBreakingChanges": false
+    },
+    "breakingChanges": {
+      "checkBreakingChanges": true,
+      "breakingChangeKeywords": [
+        "breaking",
+        "breaking change",
+        "breaking changes",
+        "major change",
+        "incompatible",
+        "deprecated",
+        "obsolete"
+      ],
+      "checkChangelog": true,
+      "checkReleaseNotes": true
+    },
+    "packageExclusions": {
+      "excludeMajorUpdates": [
+        "Microsoft.NETCore.App",
+        "Microsoft.AspNetCore.App",
+        "System.*"
+      ],
+      "excludeAllUpdates": [
+        "SomeInternalPackage",
+        "ExperimentalPackage"
+      ],
+      "safePackages": [
+        "Newtonsoft.Json",
+        "System.Collections.Immutable",
+        "System.Numerics.Vectors"
+      ],
+      "customPolicies": [
+        {
+          "package": "Microsoft.Extensions.Logging.Abstractions",
+          "maxMinorIncrease": 1,
+          "requireTesting": true
+        }
+      ]
+    },
+    "testing": {
+      "requireBuildTest": true,
+      "requireUnitTest": false,
+      "requireIntegrationTest": false,
+      "testTimeoutMinutes": 30
+    },
+    "rollback": {
+      "enabled": true,
+      "autoRollbackOnFailure": false,
+      "maxRollbackAttempts": 3,
+      "notificationChannels": ["email", "slack"]
+    }
+  },
+  "approval": {
+    "requiredFor": {
+      "majorUpdates": true,
+      "securityUpdates": false,
+      "breakingChanges": true,
+      "licenseChanges": true
+    },
+    "approvers": {
+      "major": ["tech-lead", "architecture-team"],
+      "breaking": ["senior-dev", "architecture-team"],
+      "security": ["security-team"],
+      "license": ["legal-team", "tech-lead"]
+    },
+    "autoApproval": {
+      "enabled": false,
+      "conditions": [
+        "patch-updates-only",
+        "low-risk-packages",
+        "within-same-major-version"
+      ]
+    }
+  },
+  "scheduling": {
+    "updateWindows": {
+      "development": {
+        "schedule": "immediate",
+        "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        "timeRange": "09:00-17:00"
+      },
+      "production": {
+        "schedule": "weekly",
+        "day": "sunday",
+        "timeRange": "02:00-04:00",
+        "maintenance": true
+      }
+    },
+    "notificationSchedule": {
+      "immediate": {
+        "critical": true,
+        "security": true,
+        "breaking": true
+      },
+      "daily": {
+        "summary": true,
+        "outdated": true
+      },
+      "weekly": {
+        "healthReport": true,
+        "recommendations": true
+      }
+    }
+  },
+  "integrations": {
+    "git": {
+      "autoCreateBranches": true,
+      "branchPrefix": "dependency-updates",
+      "commitMessageTemplate": "Update dependencies: {packageCount} packages updated",
+      "autoPush": false,
+      "requirePR": true
+    },
+    "ci": {
+      "triggerBuilds": true,
+      "requiredChecks": [
+        "build",
+        "test",
+        "security-audit"
+      ],
+      "blockOnFailure": false
+    },
+    "packaging": {
+      "updatePackageLock": true,
+      "updateDotnetTools": true,
+      "updateGlobalJson": false
+    }
+  },
+  "reporting": {
+    "formats": ["json", "markdown", "html"],
+    "includeRiskAssessment": true,
+      "includeBreakingChanges": true,
+      "includeCompatibilityNotes": true,
+      "distributionMethods": [
+        "file",
+        "email",
+        "slack",
+        "teams"
+      ]
+  }
+}

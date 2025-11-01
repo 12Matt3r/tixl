@@ -1,0 +1,80 @@
+name: Security Notifications
+
+on:
+  security_advisory:
+    types: [published]
+  pull_request:
+    types: [opened, reopened]
+  schedule:
+    - cron: '0 9 * * 1-5'  # Weekdays at 9 AM UTC
+
+jobs:
+  notify-security-issues:
+    name: Notify Security Team
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'security_advisory' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'security')) ||
+      github.event_name == 'schedule'
+    
+    steps:
+      - name: Extract security advisory info
+        if: github.event_name == 'security_advisory'
+        run: |
+          echo "Security Advisory: ${{ github.event.security_advisory.ghsa_id }}"
+          echo "Severity: ${{ github.event.security_advisory.severity }}"
+          echo "Summary: ${{ github.event.security_advisory.summary }}"
+          
+      - name: Create security issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { security_advisory } = context.payload;
+            const title = `🚨 Security Advisory: ${security_advisory.ghsa_id}`;
+            const body = `
+            # Security Advisory Alert
+            
+            **GHSA ID:** ${security_advisory.ghsa_id}
+            **Severity:** ${security_advisory.severity}
+            **Published:** ${security_advisory.published_at}
+            **Summary:** ${security_advisory.summary}
+            
+            ## Affected Packages
+            ${security_advisory.vulnerabilities.map(v => `- ${v.package.name}@${v.package.ecosystem}`).join('\n')}
+            
+            ## Details
+            ${security_advisory.description}
+            
+            ## Required Actions
+            1. Assess impact on TiXL dependencies
+            2. Update affected packages
+            3. Test updates in development environment
+            4. Deploy fixes to production
+            
+            ---
+            *This issue was automatically created by the security scanning system.*
+            `;
+            
+            const labels = ['security', 'advisory', security_advisory.severity];
+            
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: labels
+            });
+            
+            console.log(`Created security issue: ${issue.data.number}`);
+
+      - name: Notify Slack (if configured)
+        if: always()
+        run: |
+          # Send notification to Slack webhook if configured
+          if [ ! -z "$SLACK_WEBHOOK" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"🚨 TiXL Security Alert: ${{ github.event.security_advisory.ghsa_id || 'PR with security changes' }}\"}" \
+              $SLACK_WEBHOOK
+          fi
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

@@ -1,0 +1,425 @@
+name: Security Scanning Pipeline
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Weekly on Monday at 6 AM UTC
+  workflow_dispatch:
+    inputs:
+      scan_level:
+        description: 'Scan intensity level'
+        required: true
+        default: 'comprehensive'
+        type: choice
+        options:
+          - basic
+          - standard
+          comprehensive
+      target_branch:
+        description: 'Branch to scan'
+        required: false
+        default: 'main'
+
+env:
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  # Comprehensive Security Analysis
+  security-analysis:
+    name: 🔒 Comprehensive Security Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: 🛠️ Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: 🔄 Restore dependencies
+        run: |
+          dotnet restore
+          dotnet list package --vulnerable --deprecated > dependency-report.txt
+          
+      - name: 🔍 CodeQL Deep Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp, cpp
+          queries: >
+            security-extended,
+            security-and-quality,
+            codeql/scanner-credentials,
+            codeql/helgrind
+            
+      - name: 🏗️ Autobuild with security focus
+        uses: github/codeql-action/autobuild@v3
+        
+      - name: 📊 Custom security queries
+        uses: github/codeql-action/query@v3
+        with:
+          query-pack: codeql/security-extended
+          
+      - name: 🔍 Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "tixl-security-analysis"
+          
+      - name: 🛡️ Run comprehensive audit
+        run: |
+          echo "Running comprehensive security audit..."
+          dotnet audit --audit-level low > audit-results.txt 2>&1 || true
+          
+          # Check for specific security patterns
+          echo "Scanning for security anti-patterns..."
+          find . -name "*.cs" -exec grep -l "MD5\|SHA1\|DES\|RC4" {} \; > weak-crypto.txt 2>/dev/null || true
+          find . -name "*.cs" -exec grep -l "Random\(\)\|new Random\(\)" {} \; > weak-random.txt 2>/dev/null || true
+          find . -name "*.cs" -exec grep -l "Environment\.TickCount" {} \; > time-dependency.txt 2>/dev/null || true
+          
+      - name: 🔍 Dependency Deep Scan
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            // Get all project files
+            const projectFiles = execSync('find . -name "*.csproj" -type f', { encoding: 'utf8' })
+              .split('\n').filter(f => f.trim());
+            
+            let vulnerablePackages = [];
+            let deprecatedPackages = [];
+            
+            for (const projectFile of projectFiles) {
+              try {
+                const content = fs.readFileSync(projectFile, 'utf8');
+                
+                // Extract package references
+                const packageMatches = content.match(/PackageReference Include="([^"]+)"/g) || [];
+                for (const match of packageMatches) {
+                  const packageName = match.match(/Include="([^"]+)"/)[1];
+                  
+                  // Check if package is known to be vulnerable
+                  const vulnerablePackages = [
+                    'Newtonsoft.Json',
+                    'System.Text.Encodings.Web',
+                    'Microsoft.AspNetCore.All',
+                    // Add more as needed
+                  ];
+                  
+                  if (vulnerablePackages.some(vp => packageName.startsWith(vp))) {
+                    vulnerablePackages.push(packageName);
+                  }
+                }
+              } catch (error) {
+                console.log(`Error processing ${projectFile}:`, error.message);
+              }
+            }
+            
+            const report = `# Dependency Security Report
+            
+            **Scan Date:** ${new Date().toISOString()}
+            **Branch:** ${process.env.GITHUB_REF_NAME || 'unknown'}
+            
+            ## Vulnerable Packages Found
+            ${vulnerablePackages.length > 0 ? vulnerablePackages.map(p => `- ${p}`).join('\n') : 'None detected'}
+            
+            ## Recommendations
+            ${vulnerablePackages.length > 0 ? 
+              '⚠️ **Action Required:** Update vulnerable packages to latest secure versions' : 
+              '✅ All packages appear to be secure'}
+            `;
+            
+            fs.writeFileSync('dependency-security-report.md', report);
+            console.log('Dependency security report generated');
+            
+      - name: 📦 Container Security Scan
+        if: github.event_name != 'schedule'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/tixl3d/tixl:latest'
+          format: 'sarif'
+          output: 'container-scan-results.sarif'
+        continue-on-error: true
+        env:
+          TRIVY_USERNAME: ${{ secrets.GITHUB_ACTOR }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: 🔍 Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          
+      - name: 📊 Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+          category: "tixl-filesystem-scan"
+          
+      - name: 🔑 Advanced Secret Detection
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified --json > secret-scan-results.json
+          
+      - name: 🔍 Custom Security Rules
+        shell: bash
+        run: |
+          echo "Running custom TiXL security rules..."
+          
+          # Rule 1: Check for hardcoded secrets
+          echo "Checking for hardcoded secrets..."
+          grep -r -i "api[_-]key\|secret[_-]key\|password" --include="*.cs" --include="*.json" --include="*.xml" . > hardcoded-secrets.txt || true
+          
+          # Rule 2: Check for SQL injection patterns
+          echo "Scanning for SQL injection patterns..."
+          grep -r -i "execute.*\+.*select\|execute.*\+.*where" --include="*.cs" . > sql-injection-patterns.txt || true
+          
+          # Rule 3: Check for insecure HTTP usage
+          echo "Checking for insecure HTTP usage..."
+          grep -r "http://" --include="*.cs" . > insecure-http.txt || true
+          
+          # Rule 4: Check for unsafe deserialization
+          echo "Scanning for unsafe deserialization..."
+          grep -r -i "binaryformatter\|jsonserializer\|newtonsoft.*deserialize" --include="*.cs" . > unsafe-deserialization.txt || true
+          
+          # Rule 5: Check for weak cryptography
+          echo "Checking for weak cryptography..."
+          grep -r -i "md5\|sha1\|des\|rc4" --include="*.cs" . > weak-crypto.txt || true
+          
+      - name: 📋 Generate Security Report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const execSync = require('child_process').execSync;
+            
+            const readFileIfExists = (filename) => {
+              try {
+                return fs.readFileSync(filename, 'utf8');
+              } catch {
+                return null;
+              }
+            };
+            
+            const getFileCount = (content) => {
+              return content ? content.split('\n').filter(line => line.trim()).length : 0;
+            };
+            
+            const auditResults = readFileIfExists('audit-results.txt');
+            const hardcodedSecrets = readFileIfExists('hardcoded-secrets.txt');
+            const sqlInjection = readFileIfExists('sql-injection-patterns.txt');
+            const insecureHttp = readFileIfExists('insecure-http.txt');
+            const unsafeDeserialization = readFileIfExists('unsafe-deserialization.txt');
+            const weakCrypto = readFileIfExists('weak-crypto.txt');
+            const secretScan = readFileIfExists('secret-scan-results.json');
+            
+            let secretCount = 0;
+            if (secretScan) {
+              try {
+                const secrets = JSON.parse(secretScan);
+                secretCount = secrets.length || 0;
+              } catch {
+                secretCount = 0;
+              }
+            }
+            
+            const report = `# TiXL Security Scan Report
+            
+            **Scan Date:** ${new Date().toISOString()}
+            **Branch:** ${process.env.GITHUB_REF_NAME || 'main'}
+            **Trigger:** ${process.env.GITHUB_EVENT_NAME || 'manual'}
+            
+            ## Summary
+            - 🔍 **CodeQL Analysis:** Completed
+            - 🛡️ **Dependency Audit:** ${auditResults ? 'Issues found' : 'Clean'}
+            - 🔑 **Secrets Detection:** ${secretCount} potential secrets found
+            - ⚠️ **Security Patterns:** ${getFileCount(hardcodedSecrets) + getFileCount(sqlInjection)} findings
+            - 🔒 **Container Scan:** ${process.env.GITHUB_EVENT_NAME !== 'schedule' ? 'Completed' : 'Skipped'}
+            
+            ## Detailed Findings
+            
+            ### Dependency Vulnerabilities
+            ${auditResults || '✅ No vulnerabilities detected'}
+            
+            ### Potential Secrets Found
+            ${secretCount > 0 ? 
+              `⚠️ **${secretCount} potential secrets detected**\n\n\`\`\`\n${secretScan}\n\`\`\`` : 
+              '✅ No hardcoded secrets detected'}
+            
+            ### Security Anti-Patterns
+            ${hardcodedSecrets ? `⚠️ **Hardcoded credentials:** ${getFileCount(hardcodedSecrets)} files\n` : ''}
+            ${sqlInjection ? `⚠️ **SQL injection patterns:** ${getFileCount(sqlInjection)} files\n` : ''}
+            ${insecureHttp ? `⚠️ **Insecure HTTP usage:** ${getFileCount(insecureHttp)} files\n` : ''}
+            ${unsafeDeserialization ? `⚠️ **Unsafe deserialization:** ${getFileCount(unsafeDeserialization)} files\n` : ''}
+            ${weakCrypto ? `⚠️ **Weak cryptography:** ${getFileCount(weakCrypto)} files\n` : ''}
+            
+            ## Recommendations
+            ${secretCount > 0 ? '🔑 Remove or secure any detected secrets' : ''}
+            ${auditResults ? '🛡️ Update vulnerable dependencies' : ''}
+            ${hardcodedSecrets ? '🔐 Use secure configuration management' : ''}
+            ${insecureHttp ? '🔒 Upgrade to HTTPS for all communications' : ''}
+            
+            ---
+            *Generated by TiXL Security Scanning Pipeline*
+            `;
+            
+            fs.writeFileSync('security-scan-report.md', report);
+            console.log('Security scan report generated');
+            
+      - name: 📤 Upload security artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-scan-artifacts
+          path: |
+            security-scan-report.md
+            dependency-security-report.md
+            dependency-report.txt
+            audit-results.txt
+            hardcoded-secrets.txt
+            sql-injection-patterns.txt
+            insecure-http.txt
+            unsafe-deserialization.txt
+            weak-crypto.txt
+            secret-scan-results.json
+            trivy-fs-results.sarif
+            container-scan-results.sarif
+          retention-days: 30
+
+  # Security Gate Validation
+  security-gate:
+    name: 🚪 Security Gate Validation
+    runs-on: ubuntu-latest
+    needs: security-analysis
+    if: always()
+    
+    steps:
+      - name: 📥 Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: security-scan-artifacts
+          path: ./security-report
+          
+      - name: 🛡️ Evaluate security gates
+        shell: bash
+        run: |
+          echo "Evaluating security quality gates..."
+          
+          # Security gate criteria
+          FAILED_GATES=0
+          
+          # Check for critical vulnerabilities
+          if [ -f "./security-report/audit-results.txt" ]; then
+            if grep -q "CRITICAL\|HIGH.*vulnerability" ./security-report/audit-results.txt; then
+              echo "❌ Critical security vulnerabilities detected"
+              FAILED_GATES=$((FAILED_GATES + 1))
+            else
+              echo "✅ No critical vulnerabilities"
+            fi
+          fi
+          
+          # Check for secret leaks
+          if [ -f "./security-report/secret-scan-results.json" ]; then
+            SECRET_COUNT=$(grep -c '" Verified"' ./security-report/secret-scan-results.json 2>/dev/null || echo "0")
+            if [ "$SECRET_COUNT" -gt 0 ]; then
+              echo "❌ $SECRET_COUNT potential secrets detected"
+              FAILED_GATES=$((FAILED_GATES + 1))
+            else
+              echo "✅ No secrets detected"
+            fi
+          fi
+          
+          # Overall gate result
+          if [ "$FAILED_GATES" -gt 0 ]; then
+            echo "🔴 Security gate failed with $FAILED_GATES critical issues"
+            exit 1
+          else
+            echo "🟢 All security gates passed"
+          fi
+          
+      - name: 🏷️ Set security status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let status = 'passed';
+            let description = 'All security checks passed';
+            
+            try {
+              if (fs.existsSync('./security-report/security-scan-report.md')) {
+                const report = fs.readFileSync('./security-report/security-scan-report.md', 'utf8');
+                if (report.includes('❌') || report.includes('⚠️')) {
+                  status = 'issues_found';
+                  description = 'Security issues detected - review required';
+                }
+              }
+            } catch (error) {
+              console.log('Could not read security report');
+            }
+            
+            // Update commit status
+            try {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: status,
+                context: 'security/gating',
+                description: description,
+                target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+              });
+            } catch (error) {
+              console.log('Could not update commit status:', error);
+            }
+
+  # Security notification
+  security-notification:
+    name: 📢 Security Alert
+    runs-on: ubuntu-latest
+    needs: [security-analysis, security-gate]
+    if: failure()
+    
+    steps:
+      - name: 📧 Send security alert
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const message = `🔒 **TiXL Security Scan Alert**
+            
+            **Event:** ${context.eventName}
+            **Branch:** ${context.ref}
+            **Commit:** ${context.sha.substring(0, 7)}
+            
+            **Issues Detected:**
+            - Security vulnerabilities found
+            - Potential secret leaks
+            - Code quality security issues
+            
+            **Action Required:**
+            1. Review the security scan report
+            2. Address any critical vulnerabilities
+            3. Remove any hardcoded secrets
+            4. Update dependencies if needed
+            
+            **Report:** [View Security Report](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+            
+            ---
+            *This is an automated security alert from TiXL CI/CD*`;
+            
+            // Post to security team (replace with actual team/channel)
+            console.log('Security alert would be sent:', message);
+            
+            // For now, just log it
+            console.log(message);

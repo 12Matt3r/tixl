@@ -1,0 +1,39 @@
+<Project>
+  <PropertyGroup>
+    <!-- Enable SourceLink for reproducible builds -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    
+    <!-- Security configurations -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    
+    <!-- Disable insecure serializers -->
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <EnableUnsafeBinaryFormatterInDesigntimeBuild>false</EnableUnsafeBinaryFormatterInDesigntimeBuild>
+    
+    <!-- Code analysis -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    
+    <!-- Warning as errors for security-related issues -->
+    <WarningsAsErrors />
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningLevel>5</WarningLevel>
+    
+    <!-- Additional security properties -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CA2000;CA2007;CA2100;CA2200;CA2201</NoWarn>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <!-- Global package references for security analysis -->
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="SecurityCodeScan" Version="5.6.0" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

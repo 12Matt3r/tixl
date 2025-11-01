@@ -1,0 +1,47 @@
+name: "TiXL Security CodeQL Configuration"
+
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+query-filters:
+  - include:
+      kind: problem
+      precision: high
+  - exclude:
+      kind: problem
+      precision: low
+
+paths:
+  - "src/"
+  - "TiXL/"
+  - "Core/"
+  - "Operator/"
+
+paths-ignore:
+  - "**/Test/"
+  - "**/Tests/"
+  - "**/*.Tests.cs"
+  - "**/*.Test.cs"
+
+disable-default-queries: false
+
+custom-queries:
+  - name: "Deserialization Security"
+    description: "Detect unsafe deserialization patterns"
+    pattern: |
+      import csharp
+      
+      from Method m
+      where m.getName().regexpMatch(".*Deserialize.*")
+      select m
+  
+  - name: "SQL Injection Patterns"
+    description: "Detect potential SQL injection vulnerabilities"
+    pattern: |
+      import csharp
+      
+      from Variable v
+      where v.getType().getName().equals("String")
+      and v.getLocation().getFile().getExtension().equals(".cs")
+      select v

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <componentAnalyzer>
+    <npmEnabled>false</npmEnabled>
+    <pythonEnabled>false</pythonEnabled>
+    <rubyEnabled>false</rubyEnabled>
+    <phpEnabled>false</phpEnabled>
+    <nodeEnabled>false</nodeEnabled>
+    <dotnetEnabled>true</dotnetEnabled>
+    <jfrogEnabled>false</jfrogEnabled>
+    <archiveEnabled>true</archiveEnabled>
+    <autoconfEnabled>false</autoconfEnabled>
+    <cmakeEnabled>false</cmakeEnabled>
+    <opensslEnabled>false</opensslEnabled>
+    <swiftEnabled>false</swiftEnabled>
+  </componentAnalyzer>
+  
+  <skipSystemScope>true</skipSystemScope>
+  
+  <suppressionFiles>
+    <suppressionFile>suppressions.xml</suppressionFile>
+  </suppressionFiles>
+  
+  <hintEnabled>true</hintEnabled>
+  
+  <format>ALL</format>
+  
+  <timeout>300000</timeout>
+  
+  <maxAge>7</maxAge>
+  
+  <cveValidForHours>72</cveValidForHours>
+</configuration>

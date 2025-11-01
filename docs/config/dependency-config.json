@@ -1,0 +1,75 @@
+{
+  "general": {
+    "timeoutMinutes": 30,
+    "maxRetries": 3,
+    "parallelJobs": 4,
+    "logLevel": "INFO"
+  },
+  "scanning": {
+    "sources": [
+      {
+        "name": "nuget",
+        "url": "https://api.nuget.org/v3-flatcontainer",
+        "enabled": true
+      },
+      {
+        "name": "github",
+        "url": "https://api.github.com/advisories",
+        "enabled": true,
+        "apiKey": ""
+      },
+      {
+        "name": "nvd",
+        "url": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+        "enabled": true,
+        "apiKey": ""
+      }
+    ],
+    "cache": {
+      "enabled": true,
+      "ttlHours": 24,
+      "directory": "./cache"
+    }
+  },
+  "performance": {
+    "thresholds": {
+      "maxDependenciesPerProject": 50,
+      "maxProjectReferences": 10,
+      "maxTransitiveDepth": 5,
+      "minHealthScore": 80
+    },
+    "optimization": {
+      "suggestUnusedDependencies": true,
+      "suggestVersionConflicts": true,
+      "suggestCircularDependencies": true,
+      "generateOptimizationRecommendations": true
+    }
+  },
+  "notifications": {
+    "enabled": true,
+    "minimumHealthScore": 80,
+    "notificationTypes": [
+      "security",
+      "compliance",
+      "updates",
+      "performance"
+    ]
+  },
+  "reporting": {
+    "formats": ["json", "markdown", "html"],
+    "includeGraphVisualization": true,
+    "includeRecommendations": true,
+    "retentionDays": 90
+  },
+  "security": {
+    "checkVulnerabilities": true,
+    "minimumCVSSScore": 0,
+    "ignoreCVEs": [],
+    "blockBuildOnCritical": false
+  },
+  "compliance": {
+    "enforceLicensePolicy": true,
+    "allowUnknownLicenses": false,
+    "requireApprovalForRestrictedLicenses": true
+  }
+}

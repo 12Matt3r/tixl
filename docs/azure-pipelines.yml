@@ -1,0 +1,263 @@
+# TiXL Azure DevOps Pipeline
+# Supports multi-platform builds with zero-warning policy enforcement
+
+trigger:
+- main
+- develop
+
+pr:
+- main
+- develop
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  dotnetVersion: '9.0.x'
+  solutionPath: 'TiXL.sln'
+  
+stages:
+- stage: Build
+  displayName: 'Build and Analyze'
+  jobs:
+  - job: BuildAndAnalyze
+    displayName: 'Build with Zero Warnings'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+
+    - task: PowerShell@2
+      displayName: 'Pre-build warning check'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/check-warnings.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -DetailedAnalysis -ShowProgress'
+        errorActionPreference: 'continue'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Build with warnings as errors'
+      inputs:
+        command: 'build'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) /p:TreatWarningsAsErrors=true /p:EnforceCodeStyleInBuild=true /p:WarningsAsErrors="" /v:minimal'
+      continueOnError: false
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish build artifacts'
+      inputs:
+        command: 'publish'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory) /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish artifacts'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'TiXL-$(Build.BuildNumber)'
+        publishLocation: 'Container'
+
+    - task: PublishTestResults@2
+      displayName: 'Publish test results'
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '**/*.trx'
+        testRunTitle: 'TiXL Test Results'
+
+- stage: Test
+  displayName: 'Run Tests'
+  dependsOn: Build
+  jobs:
+  - job: RunTests
+    displayName: 'Unit Tests'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore test dependencies'
+      inputs:
+        command: 'restore'
+        projects: '**/*Tests.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run tests'
+      inputs:
+        command: 'test'
+        projects: '**/*Tests.csproj'
+        arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura'
+        publishTestResults: true
+
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '**/coverage.cobertura.xml'
+
+- stage: Package
+  displayName: 'Create Packages'
+  dependsOn: 
+  - Build
+  - Test
+  condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop'))
+  jobs:
+  - job: CreatePackages
+    displayName: 'NuGet Packages'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Create NuGet packages'
+      inputs:
+        command: 'pack'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) --no-build /p:TreatWarningsAsErrors=true /p:PackageOutputPath=$(Build.ArtifactStagingDirectory)'
+
+    - task: NuGetCommand@2
+      displayName: 'Push packages to internal feed'
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      inputs:
+        command: 'push'
+        packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg'
+        nuGetFeedType: 'internal'
+        publishVstsFeed: '$(System.TeamProject)/$(Build.Repository.Name)/_packaging/$(System.TeamProject)/nuget/v3/index.json'
+        allowPackageConflicts: false
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish packages'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'packages'
+        publishLocation: 'Container'
+
+- stage: Deploy
+  displayName: 'Deploy'
+  dependsOn: Package
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployToNuGet
+    displayName: 'Deploy to NuGet.org'
+    environment: 'Production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: NuGetCommand@2
+            displayName: 'Push to NuGet.org'
+            inputs:
+              command: 'push'
+              packagesToPush: '$(Pipeline.Workspace)/packages/**/*.nupkg'
+              nuGetFeedType: 'external'
+              publishFeedCredentials: 'NuGet.org'
+              allowPackageConflicts: false
+
+# Quality gates stage
+- stage: QualityGates
+  displayName: 'Quality Gates'
+  dependsOn:
+  - Build
+  - Test
+  condition: always()
+  jobs:
+  - job: QualityCheck
+    displayName: 'Quality Verification'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Verify zero warnings policy'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/check-warnings.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/quality-report.md"'
+        errorActionPreference: 'stop'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish quality report'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'quality-reports'
+        publishLocation: 'Container'
+
+# Notification stage
+- stage: Notifications
+  displayName: 'Send Notifications'
+  dependsOn:
+  - Build
+  - Test
+  - Package
+  - QualityGates
+  condition: always()
+  jobs:
+  - job: NotifyTeam
+    displayName: 'Notify Team'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Send build notification'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $buildStatus = if ("$(Agent.JobStatus)" -eq "Succeeded") { "✅ Succeeded" } else { "❌ Failed" }
+          $buildNumber = "$(Build.BuildNumber)"
+          $branch = "$(Build.SourceBranch)"
+          $commit = "$(Build.SourceVersion)"
+          
+          $message = @"
+          TiXL Build Notification
+          ====================
+          
+          Build: $buildNumber
+          Status: $buildStatus
+          Branch: $branch
+          Commit: $commit
+          Repository: $(Build.Repository.Name)
+          
+          View Details: $(System.TeamFoundationCollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)
+          "@
+          
+          # Log the message (in a real scenario, you would send this to Teams, Slack, email, etc.)
+          Write-Host $message
+
+# Post-build cleanup
+- stage: Cleanup
+  displayName: 'Cleanup'
+  dependsOn: 
+  - Build
+  - Test
+  - Package
+  - Deploy
+  - QualityGates
+  condition: always()
+  jobs:
+  - job: Cleanup
+    displayName: 'Cleanup Resources'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Clean temporary files'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Remove-Item -Path "**/bin" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "**/obj" -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Cleanup completed"

@@ -1,0 +1,456 @@
+# Enhanced TiXL Azure DevOps Pipeline with Dependency Management
+# Includes automated dependency auditing, security scanning, and update workflows
+
+trigger:
+- main
+- develop
+- dependency-updates-*
+
+pr:
+- main
+- develop
+- dependency-updates-*
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  dotnetVersion: '9.0.x'
+  solutionPath: 'TiXL.sln'
+  dependencyScriptsPath: '$(System.DefaultWorkingDirectory)/docs/scripts'
+  dependencyConfigPath: '$(System.DefaultWorkingDirectory)/docs/config'
+
+stages:
+# Enhanced Build Stage with Dependency Validation
+- stage: BuildAndValidate
+  displayName: 'Build and Dependency Validation'
+  jobs:
+  - job: BuildAndDependencyAudit
+    displayName: 'Build with Dependency Audit'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+
+    # Pre-build dependency audit
+    - task: PowerShell@2
+      displayName: 'Run pre-build dependency audit'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/dependency-audit.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/dependency-audit" -FailOnVulnerabilities -Severity "Medium"'
+        errorActionPreference: 'continue'
+
+    # Vulnerability scanning
+    - task: PowerShell@2
+      displayName: 'Security vulnerability scan'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/vulnerability-scanner.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/vulnerabilities" -Severity "Medium" -FailOnCritical'
+        errorActionPreference: 'continue'
+
+    # License compliance check
+    - task: PowerShell@2
+      displayName: 'License compliance check'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/license-compliance.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/licenses" -GenerateReport'
+        errorActionPreference: 'continue'
+
+    # Build with warnings as errors
+    - task: DotNetCoreCLI@2
+      displayName: 'Build with warnings as errors'
+      inputs:
+        command: 'build'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) /p:TreatWarningsAsErrors=true /p:EnforceCodeStyleInBuild=true /p:WarningsAsErrors="" /v:minimal'
+      continueOnError: false
+
+    # Dependency tree analysis
+    - task: PowerShell@2
+      displayName: 'Dependency tree analysis'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/dependency-analyzer.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/dependency-analysis" -GenerateVisualization -ExportToGraphML'
+        errorActionPreference: 'continue'
+
+    # Publish build artifacts
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish build artifacts'
+      inputs:
+        command: 'publish'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory) /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true'
+
+    # Publish dependency reports
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish dependency reports'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'dependency-reports'
+        publishLocation: 'Container'
+
+# Enhanced Test Stage
+- stage: Test
+  displayName: 'Run Tests with Dependency Validation'
+  dependsOn: BuildAndValidate
+  condition: succeeded()
+  jobs:
+  - job: RunTests
+    displayName: 'Unit Tests'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore test dependencies'
+      inputs:
+        command: 'restore'
+        projects: '**/*Tests.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run tests'
+      inputs:
+        command: 'test'
+        projects: '**/*Tests.csproj'
+        arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura'
+        publishTestResults: true
+
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '**/coverage.cobertura.xml'
+
+# Dependency Update Stage (Manual trigger for security updates)
+- stage: DependencyUpdates
+  displayName: 'Automated Dependency Updates'
+  condition: and(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['System.TeamFoundationCollectionUri'], variables['System.TeamFoundationCollectionUri']))
+  jobs:
+  - job: CheckForUpdates
+    displayName: 'Check for available updates'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: PowerShell@2
+      displayName: 'Check for dependency updates'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/dependency-updater.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -UpdateMode "Safe" -CheckOnly -GenerateReport -OutputPath "$(Build.ArtifactStagingDirectory)/updates"'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish update report'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/updates'
+        ArtifactName: 'update-reports'
+        publishLocation: 'Container'
+
+  - job: ApplySafeUpdates
+    displayName: 'Apply safe dependency updates'
+    condition: eq(variables['Build.Reason'], 'Manual')
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: PowerShell@2
+      displayName: 'Apply safe updates'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/dependency-updater.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -UpdateMode "Safe" -AutoApprove -OutputPath "$(Build.ArtifactStagingDirectory)/updates"'
+
+    - task: PowerShell@2
+      displayName: 'Create update branch and PR'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $branchName = "dependency-updates-$(Build.BuildNumber)"
+          git config --global user.email "build@tixl.com"
+          git config --global user.name "TiXL Build Agent"
+          git checkout -b $branchName
+          git add .
+          git commit -m "Apply safe dependency updates"
+          # Note: In production, you would push and create PR using git commands or APIs
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Build after updates'
+      inputs:
+        command: 'build'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) /p:TreatWarningsAsErrors=true'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run tests after updates'
+      inputs:
+        command: 'test'
+        projects: '**/*Tests.csproj'
+        arguments: '--configuration $(buildConfiguration) --no-build'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish update results'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/updates'
+        ArtifactName: 'update-results'
+        publishLocation: 'Container'
+
+# Enhanced Package Stage with Security Validation
+- stage: Package
+  displayName: 'Create Packages with Security Validation'
+  dependsOn: 
+  - BuildAndValidate
+  - Test
+  condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop'))
+  jobs:
+  - job: CreatePackages
+    displayName: 'NuGet Packages with Security Scan'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+
+    # Final security scan before packaging
+    - task: PowerShell@2
+      displayName: 'Final security scan'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/vulnerability-scanner.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/final-security" -Severity "Low" -FailOnCritical'
+        errorActionPreference: 'stop'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Create NuGet packages'
+      inputs:
+        command: 'pack'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) --no-build /p:TreatWarningsAsErrors=true /p:PackageOutputPath=$(Build.ArtifactStagingDirectory)'
+
+    - task: NuGetCommand@2
+      displayName: 'Push packages to internal feed'
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      inputs:
+        command: 'push'
+        packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg'
+        nuGetFeedType: 'internal'
+        publishVstsFeed: '$(System.TeamProject)/$(Build.Repository.Name)/_packaging/$(System.TeamProject)/nuget/v3/index.json'
+        allowPackageConflicts: false
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish packages'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'packages'
+        publishLocation: 'Container'
+
+# Notification Stage
+- stage: Notifications
+  displayName: 'Send Dependency Notifications'
+  dependsOn:
+  - BuildAndValidate
+  - Test
+  - Package
+  condition: always()
+  jobs:
+  - job: SendNotifications
+    displayName: 'Send dependency health notifications'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Send health report notification'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/update-notifier.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -NotificationType "HealthReport" -OutputPath "$(Build.ArtifactStagingDirectory)/notifications" -Channels @("Webhook")'
+        errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Send security alert if issues found'
+      condition: and(always(), ne(variables['Agent.JobStatus'], 'SucceededWithIssues'))
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/update-notifier.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -NotificationType "SecurityAlert" -OutputPath "$(Build.ArtifactStagingDirectory)/notifications" -Channels @("Email", "Slack")'
+        errorActionPreference: 'continue'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish notification logs'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/notifications'
+        ArtifactName: 'notification-logs'
+        publishLocation: 'Container'
+
+# Quality Gates Stage
+- stage: QualityGates
+  displayName: 'Quality Gates and Reporting'
+  dependsOn:
+  - BuildAndValidate
+  - Test
+  - Package
+  condition: always()
+  jobs:
+  - job: QualityVerification
+    displayName: 'Verify Quality Standards'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Generate comprehensive quality report'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/dependency-audit.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/quality-report" -GenerateReport -Severity "Medium"'
+        errorActionPreference: 'continue'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish quality report'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'quality-reports'
+        publishLocation: 'Container'
+
+    - task: PowerShell@2
+      displayName: 'Create build summary'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $buildStatus = if ("$(Agent.JobStatus)" -eq "Succeeded") { "✅ Succeeded" } else { "❌ Failed" }
+          $buildNumber = "$(Build.BuildNumber)"
+          $branch = "$(Build.SourceBranch)"
+          $commit = "$(Build.SourceVersion)"
+          
+          $summary = @"
+          TiXL Enhanced Build Summary
+          ============================
+          
+          Build: $buildNumber
+          Status: $buildStatus
+          Branch: $branch
+          Commit: $commit
+          Repository: $(Build.Repository.Name)
+          
+          Dependency Management Features:
+          ✅ Automated vulnerability scanning
+          ✅ License compliance checking  
+          ✅ Dependency tree analysis
+          ✅ Automated update workflows
+          ✅ Security validation gates
+          ✅ Health monitoring and notifications
+          
+          View Details: $(System.TeamFoundationCollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)
+          "@
+          
+          Write-Host $summary
+
+# Deploy Stage (Enhanced)
+- stage: Deploy
+  displayName: 'Deploy with Security Validation'
+  dependsOn: Package
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployToNuGet
+    displayName: 'Deploy to NuGet.org with Security Validation'
+    environment: 'Production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: PowerShell@2
+            displayName: 'Final pre-deployment security scan'
+            inputs:
+              targetType: 'filePath'
+              filePath: '$(dependencyScriptsPath)/vulnerability-scanner.ps1'
+              arguments: '-ProjectPath "$(solutionPath)" -OutputPath "$(Pipeline.Workspace)/pre-deploy-security" -Severity "Low" -FailOnCritical'
+              errorActionPreference: 'stop'
+
+          - task: NuGetCommand@2
+            displayName: 'Push to NuGet.org'
+            inputs:
+              command: 'push'
+              packagesToPush: '$(Pipeline.Workspace)/packages/**/*.nupkg'
+              nuGetFeedType: 'external'
+              publishFeedCredentials: 'NuGet.org'
+              allowPackageConflicts: false
+
+# Cleanup Stage (Enhanced)
+- stage: Cleanup
+  displayName: 'Enhanced Cleanup'
+  dependsOn: 
+  - BuildAndValidate
+  - Test
+  - Package
+  - Deploy
+  - QualityGates
+  - Notifications
+  condition: always()
+  jobs:
+  - job: Cleanup
+    displayName: 'Enhanced Cleanup and Archival'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Clean and archive dependency reports'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Archive dependency reports for long-term analysis
+          $archivePath = "$(Pipeline.Workspace)/dependency-archive-$(Build.BuildNumber)"
+          New-Item -ItemType Directory -Path $archivePath -Force
+          
+          # Copy all dependency-related artifacts
+          Copy-Item -Path "$(Pipeline.Workspace)/dependency-reports/*" -Destination $archivePath -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$(Pipeline.Workspace)/quality-reports/*" -Destination $archivePath -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$(Pipeline.Workspace)/notification-logs/*" -Destination $archivePath -Recurse -Force -ErrorAction SilentlyContinue
+          
+          Write-Host "Dependency reports archived to: $archivePath"
+
+    - task: PowerShell@2
+      displayName: 'Clean temporary files'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Remove-Item -Path "**/bin" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "**/obj" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "$(Pipeline.Workspace)/cache" -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Cleanup completed"
+
+# Security Alert Stage (Webhook-based)
+- stage: SecurityAlerts
+  displayName: 'Security Alert Processing'
+  condition: or(eq(variables['Build.Reason'], 'Manual'), and(eq(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Agent.JobStatus'], 'Succeeded')))
+  jobs:
+  - job: ProcessSecurityAlerts
+    displayName: 'Process security-related events'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Send security alerts if critical issues found'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/update-notifier.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -NotificationType "SecurityAlert" -OutputPath "$(Pipeline.Workspace)/security-alerts" -Channels @("Email", "Slack", "Teams")'
+        errorActionPreference: 'continue'

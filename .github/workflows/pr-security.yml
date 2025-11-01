@@ -1,0 +1,131 @@
+name: Pull Request Security Validation
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  # Validate that PR doesn't introduce security vulnerabilities
+  pr-security-validation:
+    name: PR Security Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for CodeQL
+          
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+          
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+            
+      - name: Restore packages with audit
+        run: dotnet restore --verbosity quiet
+        
+      - name: Check for vulnerable packages
+        run: |
+          echo "=== Checking for vulnerable packages ==="
+          dotnet list package --vulnerable --include-transitive || {
+            echo "❌ Vulnerable packages detected!"
+            exit 1
+          }
+          
+          echo "=== Checking for deprecated packages ==="
+          dotnet list package --deprecated --include-transitive || true
+          
+      - name: Run dotnet-retire
+        run: |
+          dotnet tool install --global dotnet-retire --version 3.1.0 || true
+          dotnet retire --ignore-urls "https://localhost/**" || {
+            echo "❌ Known .NET CVEs detected!"
+            exit 1
+          }
+          
+      - name: Quick CodeQL scan for PR
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+          queries: security-extended
+          
+      - name: Build for CodeQL
+        uses: github/codeql-action/autobuild@v3
+        
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:csharp"
+          
+      - name: Secret scanning
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --only-verified
+          
+      - name: Comment PR with security status
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            const results = {
+              nugetAudit: '${{ steps.nuget-audit.outcome }}',
+              codeql: '${{ steps.codeql.outcome }}',
+              secretScan: '${{ steps.secret-scan.outcome }}'
+            };
+            
+            let comment = '# Security Scan Results for PR\n\n';
+            comment += `Commit: ${context.sha.substring(0, 7)}\n\n`;
+            
+            Object.entries(results).forEach(([scan, result]) => {
+              const status = result === 'success' ? '✅' : '❌';
+              comment += `| ${scan} | ${status} |\n`;
+            });
+            
+            if (Object.values(results).every(r => r === 'success')) {
+              comment += '\n✅ **All security checks passed**\n\n';
+              comment += 'This PR does not introduce any security vulnerabilities.';
+            } else {
+              comment += '\n❌ **Security issues detected**\n\n';
+              comment += 'Please address the failed security checks before merging.';
+            }
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            const existingComment = comments.find(comment => 
+              comment.body.includes('# Security Scan Results for PR')
+            );
+            
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: comment
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }

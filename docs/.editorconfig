@@ -1,0 +1,186 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# All files
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Code files
+[*.{cs,csx,vb,vbx}]
+indent_style = space
+indent_size = 4
+end_of_line = crlf
+
+# XML files
+[*.{xml,csproj,vbproj,vcxproj,vcxproj.filters,proj,projitems,shproj}]
+indent_style = space
+indent_size = 2
+
+# YAML files
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# JSON files
+[*.{json,jsonc}]
+indent_style = space
+indent_size = 2
+
+# PowerShell files
+[*.{ps1,psm1,psd1}]
+indent_style = space
+indent_size = 4
+
+# Shell scripts
+[*.sh]
+indent_style = space
+indent_size = 4
+
+# Batch files
+[*.{cmd,bat}]
+end_of_line = crlf
+
+# Markdown files
+[*.{md,markdown}]
+trim_trailing_whitespace = false
+
+# Docker files
+[{Dockerfile,Dockerfile.*}]
+indent_style = space
+indent_size = 4
+
+# C# files
+[*.cs]
+
+# Code style rules
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+file_header_template = 
+
+# New line preferences
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+csharp_new_line_between_query_expression_clauses = true
+
+# Indentation preferences
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_indent_labels = flush_left
+
+# Space preferences
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_between_method_call_parameter_list = false
+csharp_space_between_method_declaration_parameter_list = false
+csharp_space_between_parentheses = false
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_after_colon_in_inheritance_clause = true
+csharp_space_around_binary_operators = before_and_after
+csharp_space_between_method_declaration_empty_parameter_list = false
+csharp_space_between_method_declaration_name_and_parameter_list = false
+
+# Wrapping preferences
+csharp_preserve_single_line_statements = true
+csharp_preserve_single_line_blocks = true
+
+# Code quality rules
+dotnet_diagnostic.CS1591.severity = none
+dotnet_diagnostic.CS1573.severity = suggestion
+dotnet_diagnostic.CS8618.severity = error
+dotnet_diagnostic.CS8600.severity = error
+dotnet_diagnostic.CS8601.severity = error
+dotnet_diagnostic.CS8602.severity = error
+dotnet_diagnostic.CS8603.severity = error
+dotnet_diagnostic.CS8604.severity = error
+dotnet_diagnostic.CS8605.severity = error
+dotnet_diagnostic.CS8606.severity = error
+dotnet_diagnostic.CS8607.severity = error
+dotnet_diagnostic.CS8608.severity = error
+dotnet_diagnostic.CS8609.severity = error
+dotnet_diagnostic.CS8610.severity = error
+dotnet_diagnostic.CS8611.severity = error
+dotnet_diagnostic.CS8612.severity = error
+dotnet_diagnostic.CS8613.severity = error
+dotnet_diagnostic.CS8614.severity = error
+dotnet_diagnostic.CS8615.severity = error
+dotnet_diagnostic.CS8616.severity = error
+dotnet_diagnostic.CS8617.severity = error
+dotnet_diagnostic.CS8618.severity = error
+dotnet_diagnostic.CS8619.severity = error
+dotnet_diagnostic.CS8620.severity = error
+dotnet_diagnostic.CS8621.severity = error
+dotnet_diagnostic.CS8622.severity = error
+dotnet_diagnostic.CS8623.severity = error
+dotnet_diagnostic.CS8624.severity = error
+dotnet_diagnostic.CS8625.severity = error
+dotnet_diagnostic.CS8626.severity = error
+dotnet_diagnostic.CS8627.severity = error
+dotnet_diagnostic.CS8628.severity = error
+dotnet_diagnostic.CS8629.severity = error
+dotnet_diagnostic.CS8630.severity = error
+dotnet_diagnostic.CS8631.severity = error
+dotnet_diagnostic.CS8632.severity = error
+dotnet_diagnostic.CS8633.severity = error
+dotnet_diagnostic.CS8634.severity = error
+dotnet_diagnostic.CS8635.severity = error
+dotnet_diagnostic.CS8636.severity = error
+dotnet_diagnostic.CS8637.severity = error
+dotnet_diagnostic.CS8638.severity = error
+dotnet_diagnostic.CS8639.severity = error
+dotnet_diagnostic.CS8640.severity = error
+dotnet_diagnostic.CS8641.severity = error
+dotnet_diagnostic.CS8642.severity = error
+dotnet_diagnostic.CS8643.severity = error
+dotnet_diagnostic.CS8644.severity = error
+dotnet_diagnostic.CS8645.severity = error
+dotnet_diagnostic.CS8646.severity = error
+dotnet_diagnostic.CS8647.severity = error
+dotnet_diagnostic.CS8648.severity = error
+dotnet_diagnostic.CS8649.severity = error
+dotnet_diagnostic.CS8650.severity = error
+dotnet_diagnostic.CS8651.severity = error
+dotnet_diagnostic.CS8652.severity = error
+dotnet_diagnostic.CS8653.severity = error
+dotnet_diagnostic.CS8654.severity = error
+dotnet_diagnostic.CS8655.severity = error
+dotnet_diagnostic.CS8656.severity = error
+dotnet_diagnostic.CS8657.severity = error
+dotnet_diagnostic.CS8658.severity = error
+dotnet_diagnostic.CS8659.severity = error
+dotnet_diagnostic.CS8660.severity = error
+dotnet_diagnostic.CS8661.severity = error
+dotnet_diagnostic.CS8662.severity = error
+dotnet_diagnostic.CS8663.severity = error
+dotnet_diagnostic.CS8664.severity = error
+dotnet_diagnostic.CS8665.severity = error
+dotnet_diagnostic.CS8666.severity = error
+dotnet_diagnostic.CS8667.severity = error
+dotnet_diagnostic.CS8668.severity = error
+dotnet_diagnostic.CS8669.severity = error
+dotnet_diagnostic.CS0168.severity = error
+dotnet_diagnostic.CS0219.severity = error
+dotnet_diagnostic.CS0618.severity = error
+dotnet_diagnostic.CS1998.severity = error
+dotnet_diagnostic.CS4014.severity = error
+
+# Performance rules
+dotnet_diagnostic.CA1819.severity = warning
+dotnet_diagnostic.CA1811.severity = warning
+dotnet_diagnostic.CA1822.severity = warning
+dotnet_diagnostic.CA1823.severity = warning
+
+# Design rules
+dotnet_diagnostic.CA1000.severity = warning
+dotnet_diagnostic.CA1001.severity = warning
+dotnet_diagnostic.CA1002.severity = warning
+dotnet_diagnostic.CA1003.severity = warning

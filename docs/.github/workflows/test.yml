@@ -1,0 +1,74 @@
+# .github/workflows/test.yml
+name: TiXL Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+        
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+    
+    - name: Restore dependencies
+      run: dotnet restore TiXL.sln
+      
+    - name: Build solution
+      run: dotnet build TiXL.sln --configuration ${{ matrix.configuration }} --no-restore
+      
+    - name: Run unit tests
+      run: dotnet test Tests/TiXL.Tests.csproj --configuration ${{ matrix.configuration }} --no-build --verbosity normal --logger trx --collect:"XPlat Code Coverage"
+      
+    - name: Run integration tests
+      run: dotnet test Tests/TiXL.Integration.Tests/TiXL.Integration.Tests.csproj --configuration ${{ matrix.configuration }} --no-build --verbosity normal --logger trx
+      
+    - name: Run performance tests
+      run: dotnet test Tests/TiXL.Performance.Tests/TiXL.Performance.Tests.csproj --configuration ${{ matrix.configuration }} --no-build --verbosity normal
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: Test Results ${{ matrix.configuration }}
+        path: |
+          **/TestResults/*.trx
+          **/TestResults/**/*.trx
+          
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        directory: Tests/TestResults
+        flags: unittests
+        name: codecov-${{ matrix.configuration }}
+        
+    - name: Check test coverage
+      run: |
+        $coverage = Get-Content "Tests/TestResults/coverage.json" | ConvertFrom-Json
+        $percentage = [math]::Round($coverage.total.lines.coveredPercent, 2)
+        Write-Host "Coverage: $percentage%"
+        if ($percentage -lt 70) {
+          Write-Host "ERROR: Test coverage $percentage% is below 70% threshold"
+          exit 1
+        }
+      
+    - name: Generate test report
+      if: always()
+      run: |
+        # Generate HTML test report from TRX files
+        dotnet tool install --global DotNetReportGenerator globaltool --version 5.1.0
+        reportgenerator -reports:Tests/TestResults/coverage.cobertura.xml -targetdir:Tests/TestResults/HTML -reporttypes:Html

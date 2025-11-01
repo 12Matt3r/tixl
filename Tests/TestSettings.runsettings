@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="Code Coverage" uri="datacollector://microsoft/CodeCoverage/2.0">
+        <Configuration>
+          <Format>Cobertura</Format>
+          <Exclude>[*]*Microsoft.VisualStudio.TestPlatform.*</Exclude>
+          <Include>[TiXL.Core]*</Include>
+          <Include>[TiXL.Operators]*</Include>
+          <Include>[TiXL.Gfx]*</Include>
+          <Include>[TiXL.Editor]*</Include>
+          <Include>[TiXL.Gui]*</Include>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+  
+  <LoggerRunSettings>
+    <Loggers>
+      <Logger friendlyName="console" enabled="true">
+        <Configuration>
+          <Verbosity>detailed</Verbosity>
+        </Configuration>
+      </Logger>
+      <Logger friendlyName="trx" enabled="true">
+        <Configuration>
+          <LogFileName>TestResults.trx</LogFileName>
+        </Configuration>
+      </Logger>
+    </Loggers>
+  </LoggerRunSettings>
+  
+  <MSTestRunSettings>
+    <Execution>
+      <IncludeTestMetadata>false</IncludeTestMetadata>
+    </Execution>
+  </MSTestRunSettings>
+</RunSettings>

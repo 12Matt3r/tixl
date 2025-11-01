@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rules xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://www.sonarsource.com/msft/CTRs"
+       xsi:schemaLocation="http://www.sonarsource.com/msft/CTRs 
+                           https://raw.githubusercontent.com/SonarSource/sonarlint-visualstudio/master/src/RuleKeys/RuleKeys.xsd">
+  
+  <!-- C# Specific Rules for Real-time Graphics Applications -->
+  <Rule Key="S1185" Action="Info" Description="Remove unnecessary 'ToString' calls in rendering code"/>
+  <Rule Key="S2953" Action="Warning" Description="Remove unused private fields in graphics components"/>
+  <Rule Key="S2223" Action="Warning" Description="Initialize static members in graphics engine properly"/>
+  <Rule Key="S1449" Action="Info" Description="Normalize string comparisons in shader loading"/>
+  <Rule Key="S122" Action="Error" Description="File header required for all files"/>
+  <Rule Key="S110" Action="Warning" Description="Inheritance depth should not exceed 5 levels"/>
+  <Rule Key="S109" Action="Warning" Description="Magic numbers should not be used in real-time code"/>
+  <Rule Key="S125" Action="Warning" Description="Remove commented code from graphics shaders"/>
+  <Rule Key="S1066" Action="Warning" Description="Collapsible "if" statements should be merged"/>
+  <Rule Key="S1905" Action="Info" Description="Remove unnecessary casts in graphics operations"/>
+  
+  <!-- Performance Critical Rules -->
+  <Rule Key="S2674" Action="Error" Description="Avoid memory allocations in render loops"/>
+  <Rule Key="S1940" Action="Warning" Description="Remove unnecessary boolean conversions"/>
+  <Rule Key="S3235" Action="Warning" Description="Remove unnecessary parentheses"/>
+  <Rule Key="S3358" Action="Warning" Description="Extract ternary operators to reduce complexity"/>
+  
+  <!-- Security Rules for Graphics Applications -->
+  <Rule Key="S5332" Action="Error" Description="Forbid use of insecure protocols (HTTP) in shader loading"/>
+  <Rule Key="S2638" Action="Error" Description="Remove unused named parameters in shader interfaces"/>
+  <Rule Key="S3449" Action="Warning" Description="Verify dependencies are secure"/>
+  
+</rules>

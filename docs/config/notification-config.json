@@ -1,0 +1,209 @@
+{
+  "email": {
+    "smtpServer": "smtp.example.com",
+    "smtpPort": 587,
+    "useSSL": true,
+    "username": "",
+    "password": "",
+    "fromAddress": "tixl-updates@example.com",
+    "recipients": [
+      "dev-team@example.com",
+      "security@example.com"
+    ],
+    "templates": {
+      "securityAlert": {
+        "subjectTemplate": "🚨 Security Alert: TiXL Dependency Vulnerability - {packageCount} affected",
+        "priorityTemplate": "High",
+        "urgencyTemplate": "Immediate"
+      },
+      "versionUpdate": {
+        "subjectTemplate": "📦 TiXL Dependency Updates Available - {updateCount} packages",
+        "priorityTemplate": "Medium",
+        "urgencyTemplate": "Normal"
+      },
+      "licenseViolation": {
+        "subjectTemplate": "⚖️ License Compliance Issue - {violationCount} violations",
+        "priorityTemplate": "High",
+        "urgencyTemplate": "High"
+      },
+      "healthReport": {
+        "subjectTemplate": "📊 TiXL Dependency Health Report - Score: {healthScore}/100",
+        "priorityTemplate": "Low",
+        "urgencyTemplate": "Low"
+      }
+    }
+  },
+  "slack": {
+    "webhookUrl": "",
+    "channel": "#dev-notifications",
+    "botName": "TiXL Dependency Bot",
+    "iconEmoji": ":robot_face:",
+    "colorCoding": {
+      "critical": "danger",
+      "high": "warning",
+      "medium": "good",
+      "low": "#439FE0"
+    },
+    "templates": {
+      "securityAlert": {
+        "textTemplate": "🚨 *Security Alert* - {criticalCount} critical, {highCount} high vulnerabilities found",
+        "attachmentsTemplate": "Vulnerability details and remediation steps"
+      },
+      "versionUpdate": {
+        "textTemplate": "📦 *Update Available* - {updateCount} packages can be updated ({safeCount} safe)",
+        "attachmentsTemplate": "List of available updates with risk assessment"
+      },
+      "licenseViolation": {
+        "textTemplate": "⚖️ *License Violation* - {violationCount} compliance issues detected",
+        "attachmentsTemplate": "Details of license violations and required actions"
+      },
+      "healthReport": {
+        "textTemplate": "📊 *Health Report* - Score: {healthScore}/100 ({status})",
+        "attachmentsTemplate": "Detailed health metrics and recommendations"
+      }
+    }
+  },
+  "teams": {
+    "webhookUrl": "",
+    "channel": "Development",
+    "color": "0078D4",
+    "templates": {
+      "securityAlert": {
+        "textTemplate": "🚨 **SECURITY ALERT** - {criticalCount} critical vulnerabilities detected",
+        "summaryTemplate": "Immediate attention required"
+      },
+      "versionUpdate": {
+        "textTemplate": "📦 **DEPENDENCY UPDATES** - {updateCount} packages available",
+        "summaryTemplate": "Review and schedule updates"
+      },
+      "licenseViolation": {
+        "textTemplate": "⚖️ **LICENSE COMPLIANCE** - {violationCount} violations found",
+        "summaryTemplate": "Review and resolve compliance issues"
+      },
+      "healthReport": {
+        "textTemplate": "📊 **HEALTH REPORT** - Score: {healthScore}/100 ({status})",
+        "summaryTemplate": "Overall dependency health assessment"
+      }
+    }
+  },
+  "webhook": {
+    "url": "",
+    "headers": {
+      "Content-Type": "application/json",
+      "User-Agent": "TiXL-Dependency-Notifier/1.0"
+    },
+    "timeout": 30,
+    "retry": {
+      "enabled": true,
+      "maxAttempts": 3,
+      "backoffSeconds": 5
+    },
+    "payloadFormat": {
+      "timestamp": true,
+      "projectInfo": true,
+      "status": true,
+      "recommendations": true
+    }
+  },
+  "scheduling": {
+    "immediateTriggers": [
+      "criticalVulnerability",
+      "securityUpdate",
+      "licenseViolation",
+      "buildFailure"
+    ],
+    "scheduled": {
+      "daily": {
+        "time": "09:00",
+        "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        "types": ["summary", "outdated"]
+      },
+      "weekly": {
+        "day": "monday",
+        "time": "10:00",
+        "types": ["healthReport", "recommendations"]
+      },
+      "monthly": {
+        "day": 1,
+        "time": "11:00",
+        "types": ["comprehensiveReport", "trends"]
+      }
+    },
+    "suppression": {
+      "quietHours": {
+        "start": "17:00",
+        "end": "09:00",
+        "timezone": "UTC",
+        "exceptions": ["critical", "security"]
+      },
+      "holidayCalendar": {
+        "enabled": false,
+        "calendarUrl": ""
+      }
+    }
+  },
+  "filtering": {
+    "minimumHealthScore": 80,
+    "notificationThresholds": {
+      "vulnerabilities": {
+        "critical": 0,
+        "high": 2,
+        "medium": 5,
+        "low": 10
+      },
+      "outdated": {
+        "major": 0,
+        "minor": 5,
+        "patch": 10
+      },
+      "license": {
+        "violations": 0,
+        "unknown": 3
+      }
+    },
+    "ignorePatterns": {
+      "packages": [
+        "Test.*",
+        ".*Test.*",
+        "Microsoft.*Test.*"
+      ],
+      "projects": [
+        ".*Tests.*",
+        ".*Test.*",
+        "Samples.*"
+      ]
+    }
+  },
+  "delivery": {
+    "failureHandling": {
+      "retryAttempts": 3,
+      "retryDelay": 30,
+      "fallbackChannels": [],
+      "escalation": {
+        "enabled": false,
+        "timeoutMinutes": 60,
+        "escalationChannel": "admin"
+      }
+    },
+    "rateLimiting": {
+      "enabled": true,
+      "maxPerHour": 100,
+      "maxPerDay": 1000,
+      "burstLimit": 10
+    }
+  },
+  "templates": {
+    "global": {
+      "projectName": "TiXL",
+      "projectUrl": "https://github.com/tixl3d/tixl",
+      "supportContact": "dev-team@example.com",
+      "footer": "Generated by TiXL Dependency Management System"
+    },
+    "formatting": {
+      "dateFormat": "yyyy-MM-dd HH:mm:ss",
+      "timezone": "UTC",
+      "useEmoji": true,
+      "includeLogo": false
+    }
+  }
+}

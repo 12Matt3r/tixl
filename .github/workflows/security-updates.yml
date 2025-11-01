@@ -1,0 +1,153 @@
+name: Security Updates and Monitoring
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'  # Weekly on Monday at 4 AM UTC
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Force update all dependencies'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  # Weekly dependency update check
+  weekly-dependency-check:
+    name: Weekly Dependency Update Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+          
+      - name: Check for outdated dependencies
+        run: |
+          dotnet restore
+          
+          # Check for outdated packages
+          echo "=== Outdated Packages ==="
+          dotnet list package --outdated --include-transitive
+          
+          # Check for deprecated packages
+          echo "=== Deprecated Packages ==="
+          dotnet list package --deprecated --include-transitive
+          
+      - name: Update dependency list
+        run: |
+          # Create a markdown report
+          cat > dependency-updates.md << 'EOF'
+          # Weekly Dependency Security Report
+          
+          Generated on: $(date)
+          
+          ## Outdated Packages
+          
+          The following packages have available updates:
+          
+          EOF
+          
+          dotnet list package --outdated --include-transitive --format table >> dependency-updates.md || true
+          
+          echo "" >> dependency-updates.md
+          echo "## Deprecated Packages" >> dependency-updates.md
+          echo "" >> dependency-updates.md
+          dotnet list package --deprecated --include-transitive --format table >> dependency-updates.md || true
+          
+      - name: Create Issue for outdated dependencies
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('dependency-updates.md', 'utf8');
+            
+            const today = new Date().toISOString().split('T')[0];
+            const title = `Weekly Security Report - ${today}`;
+            
+            // Check if issue already exists
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,weekly-report'
+            });
+            
+            const existingIssue = existingIssues.data.find(issue => issue.title === title);
+            
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: report
+              });
+              console.log('Updated existing issue');
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: report,
+                labels: ['security', 'weekly-report']
+              });
+              console.log('Created new issue');
+            }
+
+  # Security advisory monitoring
+  security-advisory-monitor:
+    name: Security Advisory Monitoring
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Get security advisories
+        run: |
+          # Get NuGet security advisories for .NET
+          curl -s "https://api.nuget.org/v3/security-advisories" | \
+            jq '.[] | select(.Severity == "high" or .Severity == "critical")' > security-advisories.json
+          
+          # Filter advisories for our dependencies (placeholder)
+          # This would need to be populated based on actual dependencies
+          echo "[]" > relevant-advisories.json
+          
+      - name: Create security advisory issue
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const advisories = JSON.parse(fs.readFileSync('relevant-advisories.json', 'utf8'));
+            
+            if (advisories.length > 0) {
+              const today = new Date().toISOString().split('T')[0];
+              const title = `⚠️ Security Advisory Alert - ${today}`;
+              
+              let body = `# Security Advisory Alert\n\n`;
+              body += `The following security advisories may affect TiXL dependencies:\n\n`;
+              
+              advisories.forEach(advisory => {
+                body += `## ${advisory.Title}\n`;
+                body += `**Severity:** ${advisory.Severity}\n`;
+                body += `**Affected Packages:** ${advisory.AffectedPackages.join(', ')}\n`;
+                body += `**Description:** ${advisory.Description}\n\n`;
+                body += `**Recommendation:** ${advisory.Recommendation}\n\n`;
+                body += `---\n\n`;
+              });
+              
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['security', 'advisory', 'high-priority']
+              });
+            }

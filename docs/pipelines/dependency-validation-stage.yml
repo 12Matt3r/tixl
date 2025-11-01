@@ -1,0 +1,401 @@
+# Standalone Dependency Validation Stage for TiXL
+# Can be integrated into existing pipelines or run as a separate validation step
+
+parameters:
+  - name: projectPath
+    type: string
+    default: 'TiXL.sln'
+  
+  - name: validationLevel
+    type: string
+    default: 'standard'
+    values:
+    - basic
+    - standard
+    - strict
+  
+  - name: failOnViolations
+    type: boolean
+    default: true
+  
+  - name: generateReports
+    type: boolean
+    default: true
+
+stages:
+- stage: DependencyValidation
+  displayName: 'Dependency Security and Compliance Validation'
+  condition: succeeded()
+  jobs:
+  - job: VulnerabilityScan
+    displayName: 'Security Vulnerability Scanning'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Setup .NET Environment'
+      inputs:
+        packageType: 'sdk'
+        version: '9.0.x'
+
+    - task: PowerShell@2
+      displayName: 'Run Security Vulnerability Scan'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/vulnerability-scanner.ps1'
+        arguments: >
+          -ProjectPath "${{ parameters.projectPath }}"
+          -Severity "Medium"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/security-scan"
+          -FailOnCritical:$${{ parameters.failOnViolations }}
+          -ExportToCSV
+      errorActionPreference: 'stop'
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Security Scan Results'
+      condition: always()
+      inputs:
+        testResultsFiles: '$(Build.ArtifactStagingDirectory)/security-scan/vulnerabilities.csv'
+        testResultsFormat: 'VSTest'
+        testRunTitle: 'Security Vulnerability Scan'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Security Reports'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/security-scan'
+        ArtifactName: 'security-scan-results'
+        publishLocation: 'Container'
+
+  - job: LicenseCompliance
+    displayName: 'License Compliance Validation'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Run License Compliance Check'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/license-compliance.ps1'
+        arguments: >
+          -ProjectPath "${{ parameters.projectPath }}"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/license-compliance"
+          -FailOnViolation:$${{ parameters.failOnViolations }}
+          -GenerateReport
+      errorActionPreference: 'continue'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish License Compliance Reports'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/license-compliance'
+        ArtifactName: 'license-compliance-results'
+        publishLocation: 'Container'
+
+  - job: DependencyAudit
+    displayName: 'Comprehensive Dependency Audit'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Run Comprehensive Dependency Audit'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-audit.ps1'
+        arguments: >
+          -SolutionPath "${{ parameters.projectPath }}"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/dependency-audit"
+          -FailOnVulnerabilities:$${{ parameters.failOnViolations }}
+          -Severity "Medium"
+          -Verbose
+      errorActionPreference: 'continue'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Dependency Audit Reports'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/dependency-audit'
+        ArtifactName: 'dependency-audit-results'
+        publishLocation: 'Container'
+
+  - job: DependencyAnalysis
+    displayName: 'Dependency Tree Analysis and Optimization'
+    condition: eq('${{ parameters.validationLevel }}', 'strict')
+    steps:
+    - task: PowerShell@2
+      displayName: 'Run Dependency Tree Analysis'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-analyzer.ps1'
+        arguments: >
+          -SolutionPath "${{ parameters.projectPath }}"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/dependency-analysis"
+          -GenerateVisualization
+          -ExportToGraphML
+          -Verbose
+      errorActionPreference: 'continue'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Dependency Analysis Reports'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/dependency-analysis'
+        ArtifactName: 'dependency-analysis-results'
+        publishLocation: 'Container'
+
+  - job: UpdateCheck
+    displayName: 'Dependency Update Status Check'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Check for Available Updates'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-updater.ps1'
+        arguments: >
+          -ProjectPath "${{ parameters.projectPath }}"
+          -UpdateMode "Safe"
+          -CheckOnly
+          -OutputPath "$(Build.ArtifactStagingDirectory)/update-check"
+          -GenerateReport
+      errorActionPreference: 'continue'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Update Check Reports'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/update-check'
+        ArtifactName: 'update-check-results'
+        publishLocation: 'Container'
+
+  - job: Notification
+    displayName: 'Send Dependency Health Notifications'
+    condition: always()
+    steps:
+    - task: PowerShell@2
+      displayName: 'Send Health Report Notification'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/update-notifier.ps1'
+        arguments: >
+          -ProjectPath "${{ parameters.projectPath }}"
+          -NotificationType "HealthReport"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/notifications"
+          -Channels @("Webhook")
+          -Verbose
+      errorActionPreference: 'continue'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Notification Logs'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/notifications'
+        ArtifactName: 'notification-logs'
+        publishLocation: 'Container'
+
+  - job: ReportConsolidation
+    displayName: 'Consolidate All Reports'
+    condition: always()
+    dependsOn:
+    - VulnerabilityScan
+    - LicenseCompliance
+    - DependencyAudit
+    - DependencyAnalysis
+    - UpdateCheck
+    - Notification
+    steps:
+    - task: PowerShell@2
+      displayName: 'Consolidate Validation Reports'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $consolidatedPath = "$(Build.ArtifactStagingDirectory)/consolidated-reports"
+          New-Item -ItemType Directory -Path $consolidatedPath -Force
+          
+          # Copy all reports to consolidated location
+          $reportSources = @(
+            "$(Build.ArtifactStagingDirectory)/security-scan-results",
+            "$(Build.ArtifactStagingDirectory)/license-compliance-results", 
+            "$(Build.ArtifactStagingDirectory)/dependency-audit-results",
+            "$(Build.ArtifactStagingDirectory)/dependency-analysis-results",
+            "$(Build.ArtifactStagingDirectory)/update-check-results",
+            "$(Build.ArtifactStagingDirectory)/notification-logs"
+          )
+          
+          foreach ($source in $reportSources) {
+            if (Test-Path $source) {
+              Copy-Item -Path "$source\*" -Destination $consolidatedPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+          }
+          
+          # Generate consolidated summary
+          $summary = @"
+          # TiXL Dependency Validation Summary
+          
+          ## Validation Results
+          
+          - **Build**: $(Build.BuildNumber)
+          - **Branch**: $(Build.SourceBranch)
+          - **Trigger**: $(Build.Reason)
+          - **Validation Level**: ${{ parameters.validationLevel }}
+          - **Timestamp**: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+          
+          ## Reports Generated
+          
+          1. Security Vulnerability Scan
+          2. License Compliance Check  
+          3. Comprehensive Dependency Audit
+          4. Dependency Tree Analysis
+          5. Update Status Check
+          6. Health Notifications
+          
+          ## Next Steps
+          
+          1. Review security vulnerabilities and apply patches
+          2. Address any license compliance violations
+          3. Consider applying recommended dependency updates
+          4. Monitor dependency health metrics
+          
+          ---
+          Generated by TiXL Dependency Validation Pipeline
+          "@
+          
+          $summary | Out-File -FilePath "$consolidatedPath/validation-summary.md" -Encoding UTF8
+          Write-Host "Consolidated reports created in: $consolidatedPath"
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Consolidated Reports'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/consolidated-reports'
+        ArtifactName: 'consolidated-dependency-reports'
+        publishLocation: 'Container'
+
+  - job: QualityGate
+    displayName: 'Quality Gate Verification'
+    condition: always()
+    dependsOn:
+    - VulnerabilityScan
+    - LicenseCompliance
+    - DependencyAudit
+    - DependencyAnalysis
+    - UpdateCheck
+    - ReportConsolidation
+    steps:
+    - task: PowerShell@2
+      displayName: 'Verify Quality Gate Criteria'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $qualityGatePassed = $true
+          $issues = @()
+          
+          # Check security vulnerabilities
+          if (Test-Path "$(Build.ArtifactStagingDirectory)/security-scan-results/vulnerability-report.json") {
+            $securityReport = Get-Content "$(Build.ArtifactStagingDirectory)/security-scan-results/vulnerability-report.json" | ConvertFrom-Json
+            $criticalCount = $securityReport.Summary.Critical
+            $highCount = $securityReport.Summary.High
+            
+            if ($criticalCount -gt 0) {
+              $qualityGatePassed = $false
+              $issues += "Critical security vulnerabilities: $criticalCount"
+            }
+            
+            if ($highCount -gt 2) {
+              $qualityGatePassed = $false
+              $issues += "Too many high-severity vulnerabilities: $highCount (max: 2)"
+            }
+          }
+          
+          # Check license violations
+          if (Test-Path "$(Build.ArtifactStagingDirectory)/license-compliance-results/compliance-report.json") {
+            $licenseReport = Get-Content "$(Build.ArtifactStagingDirectory)/license-compliance-results/compliance-report.json" | ConvertFrom-Json
+            $violationCount = $licenseReport.Summary.Violations
+            
+            if ($violationCount -gt 0) {
+              $qualityGatePassed = $false
+              $issues += "License violations: $violationCount"
+            }
+          }
+          
+          # Determine overall status
+          if ($qualityGatePassed) {
+            Write-Host "✅ Quality Gate PASSED" -ForegroundColor Green
+            Write-Host "All dependency validation criteria met."
+          }
+          else {
+            Write-Host "❌ Quality Gate FAILED" -ForegroundColor Red
+            Write-Host "Quality gate violations found:"
+            foreach ($issue in $issues) {
+              Write-Host "- $issue" -ForegroundColor Red
+            }
+            
+            if (${{ parameters.failOnViolations }}) {
+              Write-Host "Failing build due to quality gate violations." -ForegroundColor Red
+              exit 1
+            }
+            else {
+              Write-Host "Continuing build despite quality gate violations (configured to not fail)." -ForegroundColor Yellow
+            }
+          }
+          
+          # Set pipeline variable for downstream stages
+          Write-Host "##vso[task.setvariable variable=QualityGatePassed;isOutput=true]$qualityGatePassed"
+          Write-Host "##vso[task.setvariable variable=QualityIssues;isOutput=true]$($issues -join '; ')"
+
+    - task: PowerShell@2
+      displayName: 'Create Quality Gate Report'
+      condition: always()
+      inputs:
+        targetType: 'inline'
+        script: |
+          $reportPath = "$(Build.ArtifactStagingDirectory)/quality-gate-report.md"
+          $passed = "$(QualityGatePassed)"
+          $issues = "$(QualityIssues)"
+          
+          $status = if ($passed -eq "True") { "✅ PASSED" } else { "❌ FAILED" }
+          
+          $report = @"
+          # TiXL Dependency Quality Gate Report
+          
+          **Build**: $(Build.BuildNumber)  
+          **Status**: $status  
+          **Timestamp**: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")  
+          **Validation Level**: ${{ parameters.validationLevel }}
+          
+          ## Quality Gate Criteria
+          
+          - No critical security vulnerabilities
+          - No high-severity vulnerabilities exceeding threshold (2)
+          - No license compliance violations
+          - Dependency health score above threshold
+          
+          ## Issues Found
+          
+          $(
+            if ($issues) {
+              foreach ($issue in $issues.Split(';')) {
+                if ($issue.Trim()) {
+                  "- $issue"
+                }
+              }
+            } else {
+              "No issues found."
+            }
+          )
+          
+          ## Recommendations
+          
+          $(
+            if ($passed -eq "True") {
+              "All quality criteria met. Proceed with deployment."
+            } else {
+              "Address all identified issues before proceeding with deployment."
+            }
+          )
+          
+          ---
+          Generated by TiXL Dependency Validation Pipeline
+          "@
+          
+          $report | Out-File -FilePath $reportPath -Encoding UTF8
+          Write-Host "Quality gate report saved to: $reportPath"
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Quality Gate Report'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'quality-gate-report'
+        publishLocation: 'Container'
