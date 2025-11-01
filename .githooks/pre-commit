@@ -1,0 +1,130 @@
+#!/bin/bash
+# TiXL Architectural Governance Pre-commit Hook
+# This script validates architectural boundaries before allowing commits
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}TiXL Architectural Validation Pre-commit Hook${NC}"
+echo "=============================================="
+
+# Get the solution directory
+SOLUTION_DIR=$(git rev-parse --show-toplevel)
+SOLUTION_FILE="$SOLUTION_DIR/TiXL.sln"
+
+if [ ! -f "$SOLUTION_FILE" ]; then
+    echo -e "${YELLOW}Warning: TiXL.sln not found. Skipping architectural validation.${NC}"
+    exit 0
+fi
+
+# Check if the architectural validator tool exists
+VALIDATOR_TOOL="$SOLUTION_DIR/Tools/ArchitecturalValidator/bin/Release/net9.0/TiXL.ArchitecturalValidator"
+if [ ! -f "$VALIDATOR_TOOL" ]; then
+    echo -e "${YELLOW}Building architectural validator tool...${NC}"
+    cd "$SOLUTION_DIR"
+    dotnet build Tools/ArchitecturalValidator/TiXL.ArchitecturalValidator.csproj --configuration Release
+fi
+
+echo -e "${GREEN}Running architectural validation...${NC}"
+
+# Run the architectural validator
+cd "$SOLUTION_DIR"
+dotnet run --project Tools/ArchitecturalValidator/TiXL.ArchitecturalValidator.csproj -- "$SOLUTION_DIR"
+
+VALIDATOR_EXIT_CODE=$?
+
+if [ $VALIDATOR_EXIT_CODE -ne 0 ]; then
+    echo -e "${RED}❌ Architectural validation failed!${NC}"
+    echo -e "${RED}Please fix the violations before committing.${NC}"
+    echo ""
+    echo -e "${YELLOW}Common fixes:${NC}"
+    echo "1. Remove forbidden project references from .csproj files"
+    echo "2. Remove forbidden using statements from source files"
+    echo "3. Check namespace declarations match module structure"
+    echo "4. Use interfaces and abstraction layers for cross-module communication"
+    echo ""
+    echo -e "${YELLOW}For more information, see docs/ARCHITECTURAL_GOVERNANCE.md${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Architectural validation passed!${NC}"
+
+# Additional checks for common architectural violations
+echo -e "${GREEN}Running additional architectural checks...${NC}"
+
+# Check for forbidden dependency patterns in source files
+FORBIDDEN_PATTERNS=(
+    "using TiXL\.Core.*TiXL\.Operators"
+    "using TiXL\.Core.*TiXL\.Gui"
+    "using TiXL\.Operators.*TiXL\.Gui"
+    "using TiXL\.Gfx.*TiXL\.Operators"
+    "using TiXL\.Gfx.*TiXL\.Gui"
+    "using TiXL\.Gui.*TiXL\.Gfx"
+)
+
+VIOLATIONS_FOUND=0
+
+for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+    if git diff --cached --name-only | grep -E '\.cs$' | xargs grep -l "$pattern" 2>/dev/null; then
+        echo -e "${RED}❌ Forbidden dependency pattern found: $pattern${NC}"
+        VIOLATIONS_FOUND=1
+    fi
+done
+
+# Check for direct instantiation of cross-module classes (common architectural violation)
+DIRECT_INSTANTIATION_PATTERNS=(
+    "new TiXL\.Core\..*\("
+    "new TiXL\.Operators\..*\("
+    "new TiXL\.Gfx\..*\("
+    "new TiXL\.Gui\..*\("
+    "new TiXL\.Editor\..*\("
+)
+
+for pattern in "${DIRECT_INSTANTIATION_PATTERNS[@]}"; do
+    if git diff --cached --name-only | grep -E '\.cs$' | xargs grep -l "$pattern" 2>/dev/null; then
+        echo -e "${RED}❌ Direct instantiation pattern found: $pattern${NC}"
+        echo -e "${YELLOW}   Consider using dependency injection or factory methods instead${NC}"
+        VIOLATIONS_FOUND=1
+    fi
+done
+
+if [ $VIOLATIONS_FOUND -eq 1 ]; then
+    echo ""
+    echo -e "${RED}❌ Additional architectural violations found!${NC}"
+    echo -e "${YELLOW}Please fix these violations before committing.${NC}"
+    echo -e "${YELLOW}For guidance, see docs/ARCHITECTURAL_GOVERNANCE.md${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ All additional checks passed!${NC}"
+
+# Check for common code quality issues that could indicate architectural problems
+echo -e "${GREEN}Running code quality checks...${NC}"
+
+# Check for TODO comments that might indicate missing architectural abstractions
+TODO_COUNT=$(git diff --cached --name-only | grep -E '\.cs$' | xargs grep -c "TODO.*architect" 2>/dev/null || true)
+if [ "$TODO_COUNT" -gt 0 ]; then
+    echo -e "${YELLOW}⚠️  Found $TODO_COUNT TODO comments related to architecture${NC}"
+    echo -e "${YELLOW}   Consider addressing these before committing${NC}"
+fi
+
+# Check for missing XML documentation (could indicate missing API design)
+MISSING_DOCS=$(git diff --cached --name-only | grep -E '\.cs$' | xargs grep -c "public.*class\|public.*interface\|public.*enum" 2>/dev/null || true)
+if [ "$MISSING_DOCS" -gt 0 ]; then
+    echo -e "${YELLOW}Found $MISSING_DOCS public types in staged changes${NC}"
+    echo -e "${YELLOW}   Ensure they have proper XML documentation${NC}"
+fi
+
+echo -e "${GREEN}✅ Code quality checks completed!${NC}"
+
+echo ""
+echo -e "${GREEN}🎉 All architectural governance checks passed!${NC}"
+echo -e "${GREEN}Your commit is ready to go!${NC}"
+
+# Success
+exit 0

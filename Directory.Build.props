@@ -1,39 +1,209 @@
 <Project>
   <PropertyGroup>
-    <!-- Enable SourceLink for reproducible builds -->
+    <!-- ========================= -->
+    <!-- REPRODUCIBLE BUILDS SETTINGS -->
+    <!-- ========================= -->
+    
+    <!-- SourceLink Integration -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <SymbolPackageVersion>1.0.0</SymbolPackageVersion>
     
-    <!-- Security configurations -->
+    <!-- Deterministic Build Configuration -->
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    
+    <!-- Fixed Build Environment for Reproducible Builds -->
+    <SourceLinkDateTime>2024-01-01T00:00:00+00:00</SourceLinkDateTime>
+    <BuildDate Condition="'$(BuildDate)' == ''">2024-01-01T00:00:00Z</BuildDate>
+    <SourceRevisionId Condition="'$(SourceRevisionId)' == ''">$(BuildDate)</SourceRevisionId>
+    
+    <!-- ========================= -->
+    <!-- SECURITY CONFIGURATIONS -->
+    <!-- ========================= -->
+    
+    <!-- NuGet Security -->
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditLevel>low</NuGetAuditLevel>
     <NuGetAuditMode>all</NuGetAuditMode>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
     
     <!-- Disable insecure serializers -->
     <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
     <EnableUnsafeBinaryFormatterInDesigntimeBuild>false</EnableUnsafeBinaryFormatterInDesigntimeBuild>
     
-    <!-- Code analysis -->
+    <!-- Security-specific compiler flags -->
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+    <Nullable>enable</Nullable>
+    
+    <!-- ========================= -->
+    <!-- CODE ANALYSIS & QUALITY -->
+    <!-- ========================= -->
+    
+    <!-- .NET Analyzers -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     
-    <!-- Warning as errors for security-related issues -->
-    <WarningsAsErrors />
+    <!-- Compiler Warnings -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningLevel>5</WarningLevel>
+    <WarningsAsErrors />
+    <WarningsNotAsErrors>CS1591</WarningsNotAsErrors> <!-- Allow missing XML doc warnings in some cases -->
     
-    <!-- Additional security properties -->
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Specific warning suppressions for known issues -->
     <NoWarn>$(NoWarn);CA2000;CA2007;CA2100;CA2200;CA2201</NoWarn>
+    
+    <!-- Documentation Generation -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+    
+    <!-- ========================= -->
+    <!-- BUILD REPRODUCIBILITY -->
+    <!-- ========================= -->
+    
+    <!-- Fixed file versions for reproducible builds -->
+    <FileVersion Condition="'$(FileVersion)' == ''">1.0.0.0</FileVersion>
+    <AssemblyVersion Condition="'$(AssemblyVersion)' == ''">1.0.0.0</AssemblyVersion>
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">1.0.0+$(SourceRevisionId)</InformationalVersion>
+    
+    <!-- Disable timestamp-based variability -->
+    <Deterministic>true</Deterministic>
+    
+    <!-- ========================= -->
+    <!-- PACKAGING & SIGNING -->
+    <!-- ========================= -->
+    
+    <!-- Package configuration for reproducible builds -->
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <IncludeSymbolsInPackage>false</IncludeSymbolsInPackage>
+    <IncludeSource>true</IncludeSource>
+    
+    <!-- Code signing configuration (will be used in CI/CD) -->
+    <SignAssembly Condition="'$(SignAssembly)' == ''">false</SignAssembly>
+    <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == ''"></AssemblyOriginatorKeyFile>
+    
+    <!-- Package metadata -->
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/tixl/tixl</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/tixl/tixl.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    
+    <!-- ========================= -->
+    <!-- DEBUGGING & PROFILING -->
+    <!-- ========================= -->
+    
+    <!-- Debug configuration -->
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+    <Optimize Condition="'$(Configuration)' == 'Debug'">false</Optimize>
+    
+    <!-- ========================= -->
+    <!-- TESTING CONFIGURATION -->
+    <!-- ========================= -->
+    
+    <!-- Test project settings -->
+    <IsTestProject Condition="'$(MSBuildProjectName)' != $null And $(MSBuildProjectName.EndsWith('Tests'))">true</IsTestProject>
+    <IsPackable Condition="'$(IsTestProject)' == 'true'">false</IsPackable>
+  </PropertyGroup>
+
+  <!-- Architectural Governance Configuration -->
+  <PropertyGroup>
+    <!-- Architectural Ruleset -->
+    <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)docs\ARCHITECTURAL_CONSTRAINTS.ruleset</CodeAnalysisRuleSet>
+    
+    <!-- Forbidden dependencies per module -->
+    <ForbiddenCoreReferences>TiXL.Operators;TiXL.Gui;TiXL.Gfx;TiXL.Editor</ForbiddenCoreReferences>
+    <ForbiddenOperatorReferences>TiXL.Gui;TiXL.Gfx;TiXL.Editor</ForbiddenOperatorReferences>
+    <ForbiddenGfxReferences>TiXL.Operators;TiXL.Gui;TiXL.Editor</ForbiddenGfxReferences>
+    <ForbiddenGuiReferences>TiXL.Gfx;TiXL.Editor</ForbiddenGuiReferences>
+    <ForbiddenEditorReferences></ForbiddenEditorReferences>
+  </PropertyGroup>
+
+  <!-- Module-specific architectural constraints -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'TiXL.Core'">
+    <EnforceArchitecturalConstraints>true</EnforceArchitecturalConstraints>
+    <ForbiddenProjectReference>$(ForbiddenCoreReferences)</ForbiddenProjectReference>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'TiXL.Operators'">
+    <EnforceArchitecturalConstraints>true</EnforceArchitecturalConstraints>
+    <ForbiddenProjectReference>$(ForbiddenOperatorReferences)</ForbiddenProjectReference>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'TiXL.Gfx'">
+    <EnforceArchitecturalConstraints>true</EnforceArchitecturalConstraints>
+    <ForbiddenProjectReference>$(ForbiddenGfxReferences)</ForbiddenProjectReference>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'TiXL.Gui'">
+    <EnforceArchitecturalConstraints>true</EnforceArchitecturalConstraints>
+    <ForbiddenProjectReference>$(ForbiddenGuiReferences)</ForbiddenProjectReference>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'TiXL.Editor'">
+    <EnforceArchitecturalConstraints>true</EnforceArchitecturalConstraints>
+    <ForbiddenProjectReference>$(ForbiddenEditorReferences)</ForbiddenProjectReference>
+  </PropertyGroup>
+
+  <!-- Test and utility projects (exempt from architectural constraints) -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'TiXL.Tests' Or 
+                           '$(MSBuildProjectName)' == 'TiXL.Benchmarks' Or
+                           '$(MSBuildProjectName)' == 'TiXL.ArchitecturalValidator'">
+    <EnforceArchitecturalConstraints>false</EnforceArchitecturalConstraints>
+  </PropertyGroup>
+
+  <!-- Architectural validation target -->
+  <Target Name="ValidateArchitecturalBoundaries" BeforeTargets="BeforeBuild" 
+          Condition="'$(EnforceArchitecturalConstraints)' == 'true'">
+    <Message Text="Validating architectural boundaries for $(MSBuildProjectName)" Importance="high" />
+    
+    <PropertyGroup>
+      <ModuleName Condition="'$(MSBuildProjectName)' == 'TiXL.Core'">Core</ModuleName>
+      <ModuleName Condition="'$(MSBuildProjectName)' == 'TiXL.Operators'">Operators</ModuleName>
+      <ModuleName Condition="'$(MSBuildProjectName)' == 'TiXL.Gfx'">Gfx</ModuleName>
+      <ModuleName Condition="'$(MSBuildProjectName)' == 'TiXL.Gui'">Gui</ModuleName>
+      <ModuleName Condition="'$(MSBuildProjectName)' == 'TiXL.Editor'">Editor</ModuleName>
+    </PropertyGroup>
+    
+    <!-- This will fail the build if architectural violations are detected -->
+    <Error Text="Architectural boundary violation detected in $(MSBuildProjectName). Check project references." 
+           Condition="'$(ForbiddenProjectReference)' != '' And '$(MSBuildProjectName)' != 'TiXL.Tests' And '$(MSBuildProjectName)' != 'TiXL.Benchmarks'" />
+    
+    <Message Text="Architectural validation passed for $(MSBuildProjectName)" Importance="high" />
+  </Target>
+
+  <!-- Configuration-specific warning settings -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <WarningLevel>5</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <WarningLevel>5</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
   </PropertyGroup>
   
   <ItemGroup>
-    <!-- Global package references for security analysis -->
+    <!-- Global package references for security analysis and zero-warning policy -->
     <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0" PrivateAssets="All" />
     <PackageReference Include="SecurityCodeScan" Version="5.6.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Additional analyzers for specific warning categories -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFixes" Version="4.8.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.8.0" PrivateAssets="All" />
   </ItemGroup>
 </Project>

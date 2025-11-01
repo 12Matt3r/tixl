@@ -1,521 +1,441 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Threading;
-using System.Collections.Generic;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Running;
-using BenchmarkDotNet.Jobs;
-using BenchmarkDotNet.Order;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Loggers;
 using BenchmarkDotNet.Columns;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Engines;
+using BenchmarkDotNet.Exporters.Json;
+using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Loggers;
+using BenchmarkDotNet.Order;
+using BenchmarkDotNet.Reports;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using TiXL.PerformanceSuite.Benchmarks;
+using TiXL.PerformanceSuite.Core;
+using TiXL.PerformanceSuite.Models;
+using TiXL.PerformanceSuite.Services;
 
-namespace TiXL.Benchmarks
+namespace TiXL.PerformanceSuite
 {
     /// <summary>
-    /// Comprehensive benchmarks for TiXL core operations
-    /// Measures performance of critical paths to detect regressions
+    /// Comprehensive Performance Benchmarking Suite for TiXL
+    /// 
+    /// This suite provides:
+    /// 1. Frame time benchmarking for real-time performance
+    /// 2. Memory usage profiling and leak detection
+    /// 3. Project load time analysis for realistic scenarios
+    /// 4. Operator execution performance measurement
+    /// 5. Automated regression detection
+    /// 6. Performance trend analysis and reporting
+    /// 7. Baseline establishment and management
+    /// 8. Alert system for performance degradation
     /// </summary>
-    
-    [SimpleJob(RuntimeMoniker.Net90)]
-    [MemoryDiagnoser]
-    [Orderer(SummaryOrderPolicy.Fastest)]
-    [MinColumn, MaxColumn, MeanColumn, MedianColumn]
-    public class CoreBenchmarks
+    public class Program
     {
-        private readonly int[] _largeDataset;
-        private readonly Random _random;
-        private List<int> _testList;
-        
-        public CoreBenchmarks()
+        private static IHost? _host;
+        private static ILogger<Program>? _logger;
+        private static PerformanceMonitorService? _monitorService;
+        private static BaselineManager? _baselineManager;
+        private static ReportGenerator? _reportGenerator;
+
+        static async Task<int> Main(string[] args)
         {
-            _random = new Random(42);
-            _largeDataset = Enumerable.Range(0, 10000).Select(i => _random.Next(0, 1000)).ToArray();
-            _testList = new List<int>(_largeDataset);
-        }
-        
-        #region Data Processing Benchmarks
-        
-        [Benchmark]
-        public int SumArray_LINQ()
-        {
-            return _largeDataset.Sum();
-        }
-        
-        [Benchmark]
-        public int SumArray_ForLoop()
-        {
-            int sum = 0;
-            for (int i = 0; i < _largeDataset.Length; i++)
+            try
             {
-                sum += _largeDataset[i];
-            }
-            return sum;
-        }
-        
-        [Benchmark]
-        public int SumArray_Span()
-        {
-            var span = _largeDataset.AsSpan();
-            int sum = 0;
-            foreach (var value in span)
-            {
-                sum += value;
-            }
-            return sum;
-        }
-        
-        [Benchmark]
-        public double AverageArray_LINQ()
-        {
-            return _largeDataset.Average();
-        }
-        
-        [Benchmark]
-        public int[] FilterArray_LINQ()
-        {
-            return _largeDataset.Where(x => x > 500).ToArray();
-        }
-        
-        [Benchmark]
-        public int[] FilterArray_ForLoop()
-        {
-            var result = new List<int>();
-            for (int i = 0; i < _largeDataset.Length; i++)
-            {
-                if (_largeDataset[i] > 500)
+                // Setup dependency injection and configuration
+                _host = CreateHostBuilder(args).Build();
+                _logger = _host.Services.GetRequiredService<ILogger<Program>>();
+                _monitorService = _host.Services.GetRequiredService<PerformanceMonitorService>();
+                _baselineManager = _host.Services.GetRequiredService<BaselineManager>();
+                _reportGenerator = _host.Services.GetRequiredService<ReportGenerator>();
+
+                _logger.LogInformation("🚀 TiXL Performance Benchmarking Suite Starting");
+                _logger.LogInformation($"Environment: {Environment.OSVersion}");
+                _logger.LogInformation($".NET Version: {Environment.Version}");
+                _logger.LogInformation($"Processor Count: {Environment.ProcessorCount}");
+                _logger.LogInformation($"Working Directory: {Environment.CurrentDirectory}");
+
+                // Parse command line arguments
+                var config = ParseCommandLineArgs(args);
+                if (config.ShowHelp)
                 {
-                    result.Add(_largeDataset[i]);
+                    ShowHelp();
+                    return 0;
                 }
-            }
-            return result.ToArray();
-        }
-        
-        [Benchmark]
-        public int[] SortArray_ArraySort()
-        {
-            var copy = new int[_largeDataset.Length];
-            Array.Copy(_largeDataset, copy, _largeDataset.Length);
-            Array.Sort(copy);
-            return copy;
-        }
-        
-        [Benchmark]
-        public int[] SortArray_LINQ()
-        {
-            return _largeDataset.OrderBy(x => x).ToArray();
-        }
-        
-        #endregion
-        
-        #region Mathematical Operations
-        
-        [Benchmark]
-        public double ComputePI_Leibniz()
-        {
-            double pi = 0.0;
-            for (int i = 0; i < 1000000; i++)
-            {
-                pi += (i % 2 == 0 ? 1.0 : -1.0) / (2.0 * i + 1.0);
-            }
-            return pi * 4.0;
-        }
-        
-        [Benchmark]
-        public double ComputeSquareRoots()
-        {
-            double sum = 0.0;
-            for (int i = 0; i < _largeDataset.Length; i++)
-            {
-                sum += Math.Sqrt(_largeDataset[i]);
-            }
-            return sum;
-        }
-        
-        [Benchmark]
-        public double ComputeSineWaves()
-        {
-            double sum = 0.0;
-            for (int i = 0; i < 10000; i++)
-            {
-                sum += Math.Sin(i * 0.01) * Math.Cos(i * 0.01);
-            }
-            return sum;
-        }
-        
-        [Benchmark]
-        public double ComputeMatrixMultiplication()
-        {
-            double result = 0.0;
-            // Simulate matrix operations with nested loops
-            for (int i = 0; i < 100; i++)
-            {
-                for (int j = 0; j < 100; j++)
-                {
-                    result += Math.Sin(i * j * 0.01) * Math.Cos(i * j * 0.01);
-                }
-            }
-            return result;
-        }
-        
-        #endregion
-        
-        #region String Operations
-        
-        [Benchmark]
-        public string StringConcatenation_Plus()
-        {
-            string result = "";
-            for (int i = 0; i < 1000; i++)
-            {
-                result += $"Item_{i}_Value_{_random.Next(1000)}";
-            }
-            return result;
-        }
-        
-        [Benchmark]
-        public string StringConcatenation_StringBuilder()
-        {
-            var sb = new System.Text.StringBuilder();
-            for (int i = 0; i < 1000; i++)
-            {
-                sb.Append($"Item_{i}_Value_{_random.Next(1000)}");
-            }
-            return sb.ToString();
-        }
-        
-        [Benchmark]
-        public string StringProcessing_Split()
-        {
-            var testString = string.Join(",", _largeDataset.Select(x => x.ToString()));
-            var parts = testString.Split(',');
-            return string.Join("_", parts.Where(p => int.Parse(p) > 500));
-        }
-        
-        [Benchmark]
-        public string StringProcessing_Regex()
-        {
-            var text = string.Join(" ", Enumerable.Repeat("TiXL_Benchmark_Test_", 100));
-            var pattern = @"\bTest\b";
-            return System.Text.RegularExpressions.Regex.Replace(text, pattern, "Performance");
-        }
-        
-        #endregion
-        
-        #region Memory and Object Operations
-        
-        [Benchmark]
-        public long MemoryAllocation_List()
-        {
-            var list = new List<int>(_largeDataset.Length);
-            for (int i = 0; i < _largeDataset.Length; i++)
-            {
-                list.Add(_largeDataset[i] * 2);
-            }
-            return GC.GetTotalMemory(false);
-        }
-        
-        [Benchmark]
-        public long MemoryAllocation_Array()
-        {
-            var array = new int[_largeDataset.Length];
-            for (int i = 0; i < _largeDataset.Length; i++)
-            {
-                array[i] = _largeDataset[i] * 2;
-            }
-            return GC.GetTotalMemory(false);
-        }
-        
-        [Benchmark]
-        public object[] ObjectArray_Creation()
-        {
-            var array = new object[_largeDataset.Length];
-            for (int i = 0; i < _largeDataset.Length; i++)
-            {
-                array[i] = new { Value = _largeDataset[i], Processed = true };
-            }
-            return array;
-        }
-        
-        [Benchmark]
-        public Dictionary<int, int> DictionaryOperations()
-        {
-            var dict = new Dictionary<int, int>();
-            foreach (var value in _largeDataset)
-            {
-                dict[value] = value * value;
-            }
-            
-            int sum = 0;
-            foreach (var kvp in dict)
-            {
-                sum += kvp.Value;
-            }
-            return dict;
-        }
-        
-        #endregion
-        
-        #region Concurrent Operations
-        
-        [Benchmark]
-        public async Task<int> AsyncOperations_AwaitAll()
-        {
-            var tasks = Enumerable.Range(0, 100)
-                .Select(i => Task.Run(() => {
-                    Thread.Sleep(1);
-                    return i * i;
-                }))
-                .ToArray();
+
+                // Execute performance benchmarks
+                var result = await ExecuteBenchmarks(config);
                 
-            var results = await Task.WhenAll(tasks);
-            return results.Sum();
+                _logger.LogInformation("✅ TiXL Performance Suite completed successfully");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Fatal error: {ex.Message}");
+                Console.WriteLine(ex.StackTrace);
+                return 1;
+            }
         }
-        
-        [Benchmark]
-        public int Parallel_Processing_For()
+
+        private static BenchmarkConfig ParseCommandLineArgs(string[] args)
         {
-            var result = 0;
-            Parallel.For(0, _largeDataset.Length, i => {
-                Interlocked.Add(ref result, _largeDataset[i]);
-            });
-            return result;
-        }
-        
-        [Benchmark]
-        public int Parallel_Processing_ LINQ()
-        {
-            return _largeDataset.AsParallel().Sum();
-        }
-        
-        [Benchmark]
-        public async Task ConcurrentDictionary_Operations()
-        {
-            var concurrentDict = new Concurrent.ConcurrentDictionary<int, int>();
+            var config = new BenchmarkConfig();
             
-            var tasks = Enumerable.Range(0, 1000)
-                .Select(i => Task.Run(() => {
-                    concurrentDict[i] = i * i;
-                }))
-                .ToArray();
+            for (int i = 0; i < args.Length; i++)
+            {
+                switch (args[i].ToLowerInvariant())
+                {
+                    case "--scenes":
+                    case "-s":
+                        if (i + 1 < args.Length)
+                        {
+                            config.ScenePatterns = args[++i].Split(',');
+                        }
+                        break;
+                    case "--categories":
+                    case "-c":
+                        if (i + 1 < args.Length)
+                        {
+                            config.Categories = args[++i].Split(',').Select(s => s.Trim()).ToArray();
+                        }
+                        break;
+                    case "--baseline":
+                    case "-b":
+                        config.Mode = BenchmarkMode.Baseline;
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                        {
+                            config.BaselineName = args[++i];
+                        }
+                        break;
+                    case "--regression":
+                    case "-r":
+                        config.Mode = BenchmarkMode.Regression;
+                        config.CiMode = true;
+                        break;
+                    case "--report":
+                    case "-p":
+                        config.Mode = BenchmarkMode.Report;
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                        {
+                            config.ReportPath = args[++i];
+                        }
+                        break;
+                    case "--threshold":
+                        if (i + 1 < args.Length)
+                        {
+                            if (double.TryParse(args[++i], out var threshold))
+                            {
+                                config.RegressionThreshold = threshold;
+                            }
+                        }
+                        break;
+                    case "--ci":
+                    case "--ci-mode":
+                        config.CiMode = true;
+                        break;
+                    case "--help":
+                    case "-h":
+                        config.ShowHelp = true;
+                        break;
+                    case "--verbose":
+                    case "-v":
+                        config.Verbose = true;
+                        break;
+                }
+            }
+
+            return config;
+        }
+
+        private static void ShowHelp()
+        {
+            Console.WriteLine(@"
+TiXL Performance Benchmarking Suite (TIXL-054)
+===============================================
+
+Usage: TiXL.PerformanceSuite [options]
+
+Options:
+  --scenes, -s <patterns>       Benchmark specific scene patterns (comma-separated)
+  --categories, -c <categories> Benchmark specific categories (comma-separated)
+  --baseline, -b [name]         Create performance baseline
+  --regression, -r             Run regression detection
+  --report, -p [path]          Generate performance report
+  --threshold <percent>        Regression threshold (default: 10.0%)
+  --ci, --ci-mode              CI/CD mode (fail on regressions)
+  --verbose, -v                Verbose output
+  --help, -h                   Show this help
+
+Categories:
+  FrameTime      - Real-time frame rate performance
+  MemoryUsage    - Memory allocation and GC pressure
+  ProjectLoad    - Project loading and initialization
+  OperatorExec   - Operator execution performance
+  GraphicsPerf   - Graphics pipeline performance
+  AudioLatency   - Audio processing latency
+
+Examples:
+  # Run all benchmarks
+  dotnet run
+
+  # Create baseline for specific categories
+  dotnet run --baseline --categories FrameTime,MemoryUsage
+
+  # Run regression detection in CI mode
+  dotnet run --regression --threshold 15.0 --ci
+
+  # Generate performance report
+  dotnet run --report ./reports/monthly-report.html
+
+  # Benchmark specific scenes
+  dotnet run --scenes ""*Rendering*,""*NodeEditor*""
+
+For more information: https://github.com/tixl3d/tixl/wiki/Performance-Benchmarks
+");
+        }
+
+        private static async Task<int> ExecuteBenchmarks(BenchmarkConfig config)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            var exitCode = 0;
+
+            try
+            {
+                switch (config.Mode)
+                {
+                    case BenchmarkMode.Baseline:
+                        await CreateBaseline(config);
+                        break;
+                    case BenchmarkMode.Regression:
+                        exitCode = await RunRegressionDetection(config);
+                        break;
+                    case BenchmarkMode.Report:
+                        await GenerateReport(config);
+                        break;
+                    default:
+                        await RunFullBenchmark(config);
+                        break;
+                }
+
+                stopwatch.Stop();
+                _logger.LogInformation($"Total execution time: {stopwatch.Elapsed:mm\\:ss\\.fff}");
                 
-            await Task.WhenAll(tasks);
-            return concurrentDict.Count;
-        }
-        
-        #endregion
-        
-        #region Graphics-Related Benchmarks
-        
-        [Benchmark]
-        public float ComputeVectorMagnitude()
-        {
-            float magnitude = 0.0f;
-            for (int i = 0; i < _largeDataset.Length; i += 3)
+                return exitCode;
+            }
+            catch (Exception ex)
             {
-                if (i + 2 < _largeDataset.Length)
+                _logger.LogError(ex, "Error during benchmark execution");
+                return 1;
+            }
+        }
+
+        private static async Task RunFullBenchmark(BenchmarkConfig config)
+        {
+            _logger.LogInformation("🔄 Running full TiXL performance benchmarks");
+
+            // Setup performance monitoring
+            await _monitorService!.StartMonitoring();
+
+            // Create custom BenchmarkDotNet configuration
+            var benchmarkConfig = CreateBenchmarkConfig(config);
+
+            // Run benchmarks based on selected categories
+            var selectedCategories = GetSelectedBenchmarkTypes(config.Categories);
+            
+            foreach (var category in selectedCategories)
+            {
+                _logger.LogInformation($"📊 Running {category} benchmarks...");
+                
+                try
                 {
-                    var x = _largeDataset[i];
-                    var y = _largeDataset[i + 1];
-                    var z = _largeDataset[i + 2];
-                    magnitude += (float)Math.Sqrt(x * x + y * y + z * z);
+                    switch (category)
+                    {
+                        case "FrameTime":
+                            BenchmarkRunner.Run<FrameTimeBenchmarks>(benchmarkConfig);
+                            break;
+                        case "MemoryUsage":
+                            BenchmarkRunner.Run<MemoryBenchmarks>(benchmarkConfig);
+                            break;
+                        case "ProjectLoad":
+                            BenchmarkRunner.Run<ProjectLoadBenchmarks>(benchmarkConfig);
+                            break;
+                        case "OperatorExec":
+                            BenchmarkRunner.Run<OperatorExecutionBenchmarks>(benchmarkConfig);
+                            break;
+                        case "GraphicsPerf":
+                            BenchmarkRunner.Run<GraphicsBenchmarks>(benchmarkConfig);
+                            break;
+                        case "AudioLatency":
+                            BenchmarkRunner.Run<AudioBenchmarks>(benchmarkConfig);
+                            break;
+                        default:
+                            _logger.LogWarning($"Unknown benchmark category: {category}");
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Failed to run {category} benchmarks");
                 }
             }
-            return magnitude;
+
+            // Stop monitoring and generate report
+            await _monitorService.StopMonitoring();
+            await GenerateReport(config);
+
+            _logger.LogInformation("✅ Full benchmark suite completed");
         }
-        
-        [Benchmark]
-        public float[,] MatrixTransformation()
+
+        private static async Task CreateBaseline(BenchmarkConfig config)
         {
-            var matrix = new float[4, 4];
-            var angle = (float)(Math.PI / 4.0);
-            
-            // Initialize rotation matrix
-            matrix[0, 0] = (float)Math.Cos(angle);
-            matrix[0, 1] = -(float)Math.Sin(angle);
-            matrix[1, 0] = (float)Math.Sin(angle);
-            matrix[1, 1] = (float)Math.Cos(angle);
-            matrix[2, 2] = 1.0f;
-            matrix[3, 3] = 1.0f;
-            
-            // Apply transformation to multiple points
-            float sum = 0;
-            for (int i = 0; i < 100; i++)
+            _logger.LogInformation($"🎯 Creating performance baseline: {config.BaselineName ?? "Default"}");
+
+            // Run benchmarks and capture results
+            await RunFullBenchmark(config);
+
+            // Save as baseline
+            var baselinePath = $"./Baselines/{config.BaselineName ?? "default"}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json";
+            await _baselineManager!.SaveCurrentResultsAsBaseline(config.BaselineName ?? "Default", baselinePath);
+
+            _logger.LogInformation($"✅ Baseline saved to: {baselinePath}");
+        }
+
+        private static async Task<int> RunRegressionDetection(BenchmarkConfig config)
+        {
+            _logger.LogInformation($"🔍 Running performance regression detection (threshold: {config.RegressionThreshold}%)");
+
+            // Run current benchmarks
+            await RunFullBenchmark(config);
+
+            // Load baseline and compare
+            var baselinePath = $"./Baselines/{config.BaselineName ?? "default"}.json";
+            if (!System.IO.File.Exists(baselinePath))
             {
-                var x = _random.Next(-100, 100);
-                var y = _random.Next(-100, 100);
-                var transformedX = matrix[0, 0] * x + matrix[0, 1] * y;
-                var transformedY = matrix[1, 0] * x + matrix[1, 1] * y;
-                sum += Math.Abs(transformedX) + Math.Abs(transformedY);
+                _logger.LogWarning($"Baseline not found: {baselinePath}");
+                _logger.LogInformation("Creating default baseline from current results...");
+                await CreateBaseline(config);
             }
+
+            // Analyze for regressions
+            var analysis = await _monitorService!.AnalyzeRegressions(baselinePath, config.RegressionThreshold);
             
-            return matrix;
-        }
-        
-        [Benchmark]
-        public float ColorInterpolation()
-        {
-            float sum = 0;
-            for (int i = 0; i < _largeDataset.Length; i += 3)
+            if (analysis.HasRegressions)
             {
-                if (i + 2 < _largeDataset.Length)
+                _logger.LogWarning($"⚠️  Found {analysis.RegressionCount} performance regressions");
+                
+                foreach (var regression in analysis.Regressions)
                 {
-                    var r = _largeDataset[i] / 255.0f;
-                    var g = _largeDataset[i + 1] / 255.0f;
-                    var b = _largeDataset[i + 2] / 255.0f;
-                    
-                    // Linear interpolation between colors
-                    var interpolatedR = r * 0.5f + g * 0.3f + b * 0.2f;
-                    sum += interpolatedR;
+                    _logger.LogWarning($"  {regression.BenchmarkName}: {regression.RegressionPercent:F1}% slower");
+                }
+
+                if (config.CiMode)
+                {
+                    _logger.LogError("❌ CI mode: Failing due to performance regressions");
+                    return 1;
                 }
             }
-            return sum;
-        }
-        
-        #endregion
-    }
-    
-    /// <summary>
-    /// Benchmarks for TiXL operator system performance
-    /// </summary>
-    [SimpleJob(RuntimeMoniker.Net90)]
-    [MemoryDiagnoser]
-    [Orderer(SummaryOrderPolicy.Fastest)]
-    public class OperatorBenchmarks
-    {
-        private List<TestOperator> _operators;
-        
-        public OperatorBenchmarks()
-        {
-            _operators = new List<TestOperator>();
-            for (int i = 0; i < 100; i++)
+            else
             {
-                _operators.Add(new TestOperator($"Operator_{i}"));
+                _logger.LogInformation("✅ No performance regressions detected");
             }
+
+            await GenerateReport(config);
+            return 0;
         }
-        
-        [Benchmark]
-        public int OperatorEvaluation_Sequential()
+
+        private static async Task GenerateReport(BenchmarkConfig config)
         {
-            int result = 0;
-            foreach (var op in _operators)
-            {
-                result += op.Evaluate();
-            }
-            return result;
-        }
-        
-        [Benchmark]
-        public int OperatorEvaluation_Parallel()
-        {
-            int result = 0;
-            Parallel.ForEach(_operators, op => {
-                Interlocked.Add(ref result, op.Evaluate());
-            });
-            return result;
-        }
-        
-        [Benchmark]
-        public void OperatorChaining()
-        {
-            var result = 0;
-            foreach (var op in _operators)
-            {
-                result = op.Process(result);
-            }
-        }
-        
-        [Benchmark]
-        public TestOperator CreateOperator()
-        {
-            return new TestOperator($"Dynamic_{Guid.NewGuid()}");
-        }
-        
-        [Benchmark]
-        public int[] OperatorPipeline_Processing()
-        {
-            var input = Enumerable.Range(0, 1000).ToArray();
-            var result = input;
+            _logger.LogInformation("📈 Generating performance report");
+
+            var reportPath = config.ReportPath ?? $"./Reports/performance-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.html";
             
-            foreach (var op in _operators)
-            {
-                result = op.TransformArray(result);
-            }
-            
-            return result;
+            // Generate comprehensive report
+            var reportData = await _monitorService!.GetReportData();
+            await _reportGenerator!.GenerateHtmlReport(reportData, reportPath);
+
+            _logger.LogInformation($"📄 Performance report generated: {reportPath}");
         }
-    }
-    
-    /// <summary>
-    /// Test operator class for benchmarking
-    /// </summary>
-    public class TestOperator
-    {
-        private readonly string _name;
-        private readonly int _id;
-        private static int _nextId = 0;
-        
-        public TestOperator(string name)
+
+        private static IConfig CreateBenchmarkConfig(BenchmarkConfig config)
         {
-            _name = name;
-            _id = Interlocked.Increment(ref _nextId);
-        }
-        
-        public int Evaluate()
-        {
-            // Simulate operator evaluation
-            var result = 0;
-            for (int i = 0; i < 100; i++)
-            {
-                result += (int)(Math.Sin(_id * i * 0.01) * 1000);
-            }
-            return result;
-        }
-        
-        public int Process(int input)
-        {
-            // Simulate processing input
-            return input + Evaluate() % 1000;
-        }
-        
-        public int[] TransformArray(int[] input)
-        {
-            var result = new int[input.Length];
-            for (int i = 0; i < input.Length; i++)
-            {
-                result[i] = input[i] + Evaluate() % 10;
-            }
-            return result;
-        }
-    }
-    
-    /// <summary>
-    /// Main entry point for benchmark execution
-    /// </summary>
-    class Program
-    {
-        static void Main(string[] args)
-        {
-            var config = DefaultConfig.Instance
-                .WithOptions(ConfigOptions.JoinSummary)
+            return DefaultConfig.Instance
+                .AddJob(Job.Default
+                    .WithWarmupCount(3)
+                    .WithIterationCount(10)
+                    .WithLaunchCount(1)
+                    .WithToolchain(BenchmarkDotNet.Toolchains.InProcess.NoEmit.InProcessToolchain.Instance))
                 .AddLogger(ConsoleLogger.Default)
-                .AddColumn(StatisticColumn.Mean, StatisticColumn.StdDev, StatisticColumn.Median)
-                .WithSummaryStyle(SummaryStyle.Default.WithTimeUnit(Perfolizer.Horology.TimeUnit.Millisecond));
-                
-            Console.WriteLine("TiXL Performance Benchmarks");
-            Console.WriteLine("===========================");
-            Console.WriteLine($"BenchmarkDotNet Version: {BenchmarkDotNet.BenchmarkRunner.GetCurrentVersion()}");
-            Console.WriteLine($"Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
-            Console.WriteLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
-            Console.WriteLine();
-            
-            // Run all benchmarks
-            var summary = BenchmarkRunner.Run(typeof(Program).Assembly, config);
-            
-            Console.WriteLine();
-            Console.WriteLine("Benchmark execution completed!");
-            Console.WriteLine($"Results saved to: {summary.ResultsDirectoryPath}");
+                .AddColumn(StatisticColumn.Mean, StatisticColumn.StdDev, StatisticColumn.Median, 
+                          StatisticColumn.Min, StatisticColumn.Max, StatisticColumn.OperationsPerSecond)
+                .AddExporter(JsonExporter.Brief)
+                .AddExporter(JsonExporter.Full)
+                .AddExporter(CsvExporter.Default)
+                .WithSummaryStyle(SummaryStyle.Default.WithTimeUnit(Perfolizer.Horology.TimeUnit.Millisecond))
+                .WithOptions(ConfigOptions.JoinSummary);
         }
+
+        private static List<string> GetSelectedBenchmarkTypes(string[]? categories)
+        {
+            if (categories == null || categories.Length == 0)
+            {
+                return new List<string> { "FrameTime", "MemoryUsage", "ProjectLoad", "OperatorExec", "GraphicsPerf", "AudioLatency" };
+            }
+
+            var availableCategories = new[] { "FrameTime", "MemoryUsage", "ProjectLoad", "OperatorExec", "GraphicsPerf", "AudioLatency" };
+            return categories.Where(c => availableCategories.Contains(c.Trim())).ToList();
+        }
+
+        private static IHostBuilder CreateHostBuilder(string[] args) =>
+            Host.CreateDefaultBuilder(args)
+                .ConfigureAppConfiguration((context, config) =>
+                {
+                    config.SetBasePath(Directory.GetCurrentDirectory())
+                          .AddJsonFile("config/benchmarksettings.json", optional: true)
+                          .AddJsonFile("config/baselines.json", optional: true)
+                          .AddEnvironmentVariables();
+                })
+                .ConfigureServices((context, services) =>
+                {
+                    // Register performance monitoring services
+                    services.AddSingleton<PerformanceMonitorService>();
+                    services.AddSingleton<BaselineManager>();
+                    services.AddSingleton<ReportGenerator>();
+                    services.AddSingleton<AlertService>();
+                    services.AddSingleton<TrendAnalyzer>();
+                })
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddConsole();
+                    logging.SetMinimumLevel(LogLevel.Information);
+                });
+    }
+
+    // Supporting data structures
+    public enum BenchmarkMode
+    {
+        Full,
+        Baseline,
+        Regression,
+        Report
+    }
+
+    public class BenchmarkConfig
+    {
+        public BenchmarkMode Mode { get; set; } = BenchmarkMode.Full;
+        public string[]? Categories { get; set; }
+        public string[]? ScenePatterns { get; set; }
+        public string? BaselineName { get; set; }
+        public string? ReportPath { get; set; }
+        public double RegressionThreshold { get; set; } = 10.0;
+        public bool CiMode { get; set; }
+        public bool Verbose { get; set; }
+        public bool ShowHelp { get; set; }
     }
 }

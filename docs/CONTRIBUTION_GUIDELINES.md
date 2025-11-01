@@ -1169,6 +1169,321 @@ public static class ColorPicker
 }
 ```
 
+## Architectural Governance
+
+TiXL maintains strict architectural boundaries to ensure code maintainability, testability, and extensibility. This section covers the governance rules and enforcement mechanisms that keep the codebase well-structured.
+
+### Understanding Module Boundaries
+
+TiXL follows a clean, modular architecture with five primary domains. Understanding these boundaries is crucial for contributing effectively:
+
+#### Module Responsibilities and Restrictions
+
+**Core Module (`TiXL.Core`)**
+- **Responsibilities**: Engine foundations, data types, rendering infrastructure, mathematical operations
+- **Allowed Dependencies**: System, Microsoft packages
+- **Forbidden Dependencies**: Operators, Gui, Editor, Gfx modules
+- **Key Interfaces**: `IRenderingEngine`, `IMathLibrary`, `IResourceManager`
+
+**Operators Module (`TiXL.Operators`)**
+- **Responsibilities**: Plugin-based operator system, dataflow management, operator registry
+- **Allowed Dependencies**: Core, System, Microsoft packages
+- **Forbidden Dependencies**: Gui, Editor, Gfx modules
+- **Key Interfaces**: `ISymbol`, `IInstance`, `ISlot`, `IOperatorRegistry`
+
+**Graphics Module (`TiXL.Gfx`)**
+- **Responsibilities**: DirectX 12 pipeline, shader management, graphics state handling
+- **Allowed Dependencies**: Core, SharpDX, System, Microsoft packages
+- **Forbidden Dependencies**: Operators, Gui, Editor modules
+- **Key Interfaces**: `IGraphicsDevice`, `IShaderCompiler`, `IPipelineState`
+
+**GUI Module (`TiXL.Gui`)**
+- **Responsibilities**: User interface components, window management, data binding
+- **Allowed Dependencies**: Core, Operators, ImGui.NET, System, Microsoft packages
+- **Forbidden Dependencies**: Editor, Gfx modules
+- **Key Interfaces**: `IUIComponent`, `IWindowManager`, `IOperatorUI`
+
+**Editor Module (`TiXL.Editor`)**
+- **Responsibilities**: Application orchestration, project management, integration coordination
+- **Allowed Dependencies**: All modules (integration point)
+- **Forbidden Dependencies**: None
+- **Key Interfaces**: `IApplication`, `IProjectManager`, `ICompilationManager`
+
+### Dependency Rules and Violations
+
+#### Common Architectural Violations
+
+**1. Forbidden Project References**
+```xml
+<!-- ❌ VIOLATION: Core project referencing Operators -->
+<!-- TiXL.Core.csproj -->
+<ProjectReference Include="..\Operators\TiXL.Operators.csproj" />
+
+<!-- ✅ CORRECT: Use interfaces instead -->
+<!-- Define interface in Core, implement in Operators -->
+```
+
+**2. Forbidden Using Statements**
+```csharp
+// ❌ VIOLATION: Operators importing Gui types
+using TiXL.Gui.Components; // Not allowed
+
+// ✅ CORRECT: Use abstractions defined in Operators
+using TiXL.Operators.Interfaces;
+```
+
+**3. Direct Instantiation Across Modules**
+```csharp
+// ❌ VIOLATION: Direct dependency on implementation
+var renderer = new DirectXRenderer(); // Not allowed in Operators
+
+// ✅ CORRECT: Use dependency injection
+var renderer = serviceProvider.GetService<IRenderingEngine>();
+```
+
+**4. Namespace Mismatches**
+```csharp
+// ❌ VIOLATION: Namespace doesn't match directory
+// File: src/Core/Math/Vector3.cs
+namespace TiXL.Operators.Math { } // Wrong!
+
+// ✅ CORRECT: Namespace matches directory structure
+namespace TiXL.Core.Math { }
+```
+
+### Cross-Module Communication Patterns
+
+#### 1. Interface-Based Communication
+
+Use interfaces to define contracts between modules:
+
+```csharp
+// Core defines abstraction
+namespace TiXL.Core
+{
+    public interface IRenderingService
+    {
+        void RenderFrame(RenderContext context);
+        bool IsInitialized { get; }
+    }
+}
+
+// Gfx provides implementation
+namespace TiXL.Gfx
+{
+    public class DirectXRenderingService : IRenderingService
+    {
+        public void RenderFrame(RenderContext context) { /* ... */ }
+        public bool IsInitialized { get; private set; }
+    }
+}
+
+// Editor wires them together
+namespace TiXL.Editor
+{
+    public class Application
+    {
+        private readonly IRenderingService _renderingService;
+        
+        public Application(IRenderingService renderingService)
+        {
+            _renderingService = renderingService;
+        }
+    }
+}
+```
+
+#### 2. Event-Based Communication
+
+Use events for loose coupling:
+
+```csharp
+// Core defines event contracts
+namespace TiXL.Core
+{
+    public class ResourceLoadedEventArgs : EventArgs
+    {
+        public IResource Resource { get; }
+        public string ResourcePath { get; }
+    }
+    
+    public interface IResourceManager
+    {
+        event EventHandler<ResourceLoadedEventArgs> ResourceLoaded;
+        T LoadResource<T>(string path) where T : IResource;
+    }
+}
+```
+
+#### 3. Context-Based Communication
+
+Use evaluation contexts for operator execution:
+
+```csharp
+// Operators define evaluation context
+namespace TiXL.Operators
+{
+    public class EvaluationContext
+    {
+        public IRenderingEngine RenderingEngine { get; }
+        public IAudioEngine AudioEngine { get; }
+        public IResourceManager ResourceManager { get; }
+        public ILogger Logger { get; }
+        public CancellationToken CancellationToken { get; }
+    }
+    
+    public interface IOperator
+    {
+        void Evaluate(EvaluationContext context);
+    }
+}
+```
+
+### Validation and Enforcement
+
+#### Automated Tools
+
+TiXL provides several tools to help maintain architectural compliance:
+
+**1. Architectural Validator Tool**
+```bash
+# Build and run the validator
+dotnet build Tools/ArchitecturalValidator/TiXL.ArchitecturalValidator.csproj
+dotnet run --project Tools/ArchitecturalValidator -- /path/to/TiXL.sln
+```
+
+**2. Validation Script**
+```bash
+# Run comprehensive validation
+./scripts/validate-architecture.sh validate
+
+# Set up Git hooks for automatic validation
+./scripts/validate-architecture.sh setup-hooks
+
+# Generate compliance report
+./scripts/validate-architecture.sh generate-report
+```
+
+**3. Pre-commit Hooks**
+Git hooks automatically validate architectural constraints before each commit. Violations will prevent commits from being created.
+
+#### Build-Time Validation
+
+Architectural constraints are enforced during compilation:
+
+```xml
+<!-- Directory.Build.props enforces constraints -->
+<Target Name="ValidateArchitecturalBoundaries" BeforeTargets="BeforeBuild">
+  <Error Text="Architectural boundary violation detected" 
+         Condition="'$(ForbiddenProjectReference)' != ''" />
+</Target>
+```
+
+### Code Review Checklist for Architecture
+
+**Reviewers must check:**
+
+- [ ] No forbidden dependencies introduced
+- [ ] Module boundaries respected
+- [ ] Proper use of interfaces and abstractions
+- [ ] Namespace structure maintained
+- [ ] Cross-module communication follows established patterns
+- [ ] No direct instantiation of cross-module implementations
+- [ ] Architectural documentation updated if needed
+
+**Common architecture review comments:**
+
+**Dependency Violations:**
+```csharp
+// ❌ Bad: Direct cross-module dependency
+public class MyOperator
+{
+    private readonly DirectXRenderer _renderer; // Not allowed in Operators
+}
+
+// ✅ Good: Use abstraction
+public class MyOperator
+{
+    private readonly IRenderingService _renderer; // Interface-based
+}
+```
+
+**Namespace Issues:**
+```csharp
+// ❌ Bad: Namespace doesn't match module
+namespace TiXL.Gui { } // In Operators source file
+
+// ✅ Good: Namespace matches module
+namespace TiXL.Operators { }
+```
+
+### Contributing Within Architecture
+
+#### Adding New Cross-Module Functionality
+
+1. **Define interfaces in appropriate module** (usually Core or Operators)
+2. **Implement in target module** (follows dependency rules)
+3. **Wire together in Editor** (integration point)
+4. **Add validation tests** to ensure compliance
+
+#### Creating New Modules
+
+1. **Define module boundaries** in `docs/ARCHITECTURAL_GOVERNANCE.md`
+2. **Update validation tools** with new constraints
+3. **Create architectural documentation**
+4. **Add to CI/CD validation pipeline**
+
+#### Fixing Architectural Violations
+
+1. **Identify violation type** using validation tools
+2. **Apply appropriate fix pattern**:
+   - Move interfaces to correct module
+   - Use dependency injection instead of direct instantiation
+   - Refactor using statements and namespaces
+   - Replace direct dependencies with abstractions
+3. **Run validation tools** to verify fixes
+4. **Update tests** and documentation as needed
+
+### Best Practices
+
+**Do:**
+- ✅ Use interfaces for cross-module communication
+- ✅ Follow established dependency patterns
+- ✅ Keep modules focused on their responsibilities
+- ✅ Use events and callbacks for loose coupling
+- ✅ Run validation tools before submitting changes
+
+**Don't:**
+- ❌ Create circular dependencies
+- ❌ Reference forbidden modules
+- ❌ Use direct instantiation across modules
+- ❌ Bypass established communication patterns
+- ❌ Ignore architectural validation warnings
+
+### Getting Help
+
+**Resources:**
+- [Architectural Governance Documentation](ARCHITECTURAL_GOVERNANCE.md)
+- [Architecture Tools README](ARCHITECTURAL_GOVERNANCE_TOOLS_README.md)
+- Validation script help: `./scripts/validate-architecture.sh help`
+
+**Common solutions:**
+- Run `./scripts/validate-architecture.sh validate -v` for detailed output
+- Check architectural patterns in existing codebase
+- Use IDE refactoring tools to move interfaces
+- Consult module-specific guidelines in this document
+
+### Continuous Improvement
+
+Architectural governance is an ongoing process:
+
+- **Monthly reviews** of validation reports
+- **Quarterly assessment** of architectural health
+- **Annual major reviews** and updates to governance rules
+- **Regular updates** to tools and documentation
+
+Contributors should stay informed about architectural changes and participate in governance discussions when modules evolve.
+
 ## Code Review Process
 
 ### Review Expectations

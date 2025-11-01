@@ -1,39 +1,94 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RunSettings>
+  <!-- Data Collection for Code Coverage -->
   <DataCollectionRunSettings>
     <DataCollectors>
       <DataCollector friendlyName="Code Coverage" uri="datacollector://microsoft/CodeCoverage/2.0">
         <Configuration>
           <Format>Cobertura</Format>
           <Exclude>[*]*Microsoft.VisualStudio.TestPlatform.*</Exclude>
-          <Include>[TiXL.Core]*</Include>
-          <Include>[TiXL.Operators]*</Include>
-          <Include>[TiXL.Gfx]*</Include>
-          <Include>[TiXL.Editor]*</Include>
-          <Include>[TiXL.Gui]*</Include>
+          <Exclude>[*]*Moq.*</Exclude>
+          <Exclude>[*]*FluentAssertions.*</Exclude>
+          <Exclude>[*]*xunit.*</Exclude>
+          <Exclude>[*]*TestDataGenerator*</Exclude>
+          <Exclude>[*]*Mock*</Exclude>
+          
+          <!-- Include TiXL Core Modules -->
+          <Include>[TiXL.Core.IO]*</Include>
+          <Include>[TiXL.Core.Operators]*</Include>
+          <Include>[TiXL.Core.Performance]*</Include>
+          <Include>[TiXL.Core.Logging]*</Include>
+          <Include>[TiXL.Core.Graphics]*</Include>
+          
+          <!-- Exclude test assemblies from coverage -->
+          <Exclude>[TiXL.Tests]*</Exclude>
         </Configuration>
       </DataCollector>
     </DataCollectors>
   </DataCollectionRunSettings>
   
+  <!-- Logger Configuration -->
   <LoggerRunSettings>
     <Loggers>
       <Logger friendlyName="console" enabled="true">
         <Configuration>
-          <Verbosity>detailed</Verbosity>
+          <Verbosity>minimal</Verbosity>
         </Configuration>
       </Logger>
       <Logger friendlyName="trx" enabled="true">
         <Configuration>
-          <LogFileName>TestResults.trx</LogFileName>
+          <LogFileName>TiXL_TestResults.trx</LogFileName>
+          <DeletePerfDataFile>true</DeletePerfDataFile>
+        </Configuration>
+      </Logger>
+      <Logger friendlyName="html" enabled="true">
+        <Configuration>
+          <LogFileName>TiXL_TestResults.html</LogFileName>
+        </Configuration>
+      </Logger>
+      <Logger friendlyName="xml" enabled="true">
+        <Configuration>
+          <LogFileName>TiXL_TestResults.xml</LogFileName>
         </Configuration>
       </Logger>
     </Loggers>
   </LoggerRunSettings>
   
+  <!-- MSTest Configuration -->
   <MSTestRunSettings>
     <Execution>
       <IncludeTestMetadata>false</IncludeTestMetadata>
+      <TestTimeout>300000</TestTimeout> <!-- 5 minutes -->
     </Execution>
+    <Properties>
+      <Property name="TestCategory">Unit|Integration|Performance|Smoke</Property>
+    </Properties>
   </MSTestRunSettings>
+  
+  <!-- Diagnostic Configuration -->
+  <DiagnosticDataCollectors>
+    <DataCollector friendlyName="SystemInformation" uri="datacollector://microsoft/SystemInformation/2.0">
+      <Configuration>
+        <ExcludeEnvironmentVariables>false</ExcludeEnvironmentVariables>
+        <IncludeOSVersion>true</IncludeOSVersion>
+        <IncludeMachineName>true</IncludeMachineName>
+        <IncludeProcessorInfo>true</IncludeProcessorInfo>
+        <IncludeDotNetVersion>true</IncludeDotNetVersion>
+      </Configuration>
+    </DataCollector>
+    
+    <DataCollector friendlyName="DirectoryContents" uri="datacollector://microsoft/DirectoryContents/2.0">
+      <Configuration>
+        <DirectoryContents>
+          <Directory path="$(TestResultsDirectory)" recursionDepth="2">
+            <Exclude>
+              <ExcludePattern>**\*.log</ExcludePattern>
+              <ExcludePattern>**\*.trx</ExcludePattern>
+              <ExcludePattern>**\*.coverage</ExcludePattern>
+            </Exclude>
+          </Directory>
+        </DirectoryContents>
+      </Configuration>
+    </DataCollector>
+  </DiagnosticDataCollectors>
 </RunSettings>

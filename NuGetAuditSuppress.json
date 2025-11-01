@@ -1,5 +1,13 @@
 {
-  "version": "1.1",
+  "version": "1.2",
+  "auditPolicy": {
+    "enabled": true,
+    "severityLevel": "high",
+    "timeoutMinutes": 10,
+    "allowedUnSecurePackageCount": 0,
+    "failBuildOnVulnerabilities": true,
+    "allowedSeverityLevels": ["low", "medium"]
+  },
   "suppressions": [
     {
       "id": "NU1903",
@@ -8,7 +16,42 @@
       "justification": "Planned upgrade to 13.0.3 in next release. Current version works in isolated context.",
       "createdBy": "security-team",
       "createdOn": "2025-11-01",
-      "expiresOn": "2025-12-01"
+      "expiresOn": "2025-12-01",
+      "severity": "medium",
+      "status": "approved",
+      "reviewRequired": false,
+      "approvedBy": "security-lead"
     }
-  ]
+  ],
+  "policyRules": {
+    "immediateUpgrade": [
+      "System.Text.Encodings.Web",
+      "System.Text.Json",
+      "Microsoft.Extensions.Hosting"
+    ],
+    "securityCritical": [
+      "Newtonsoft.Json",
+      "System.Net.Http",
+      "Microsoft.IdentityModel"
+    ],
+    "updateRequired": [
+      "*.SqlClient",
+      "*.Data.*",
+      "*.Security.*"
+    ]
+  },
+  "notificationSettings": {
+    "criticalVulnerabilityAlerts": {
+      "enabled": true,
+      "channels": ["email", "slack", "teams"],
+      "immediate": true,
+      "recipients": ["security@tixl.com", "dev-team@tixl.com"]
+    },
+    "weeklyReports": {
+      "enabled": true,
+      "channels": ["email"],
+      "recipients": ["security@tixl.com"],
+      "dayOfWeek": "Monday"
+    }
+  }
 }

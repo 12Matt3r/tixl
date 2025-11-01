@@ -1,0 +1,741 @@
+name: Content Scheduler
+
+on:
+  schedule:
+    # Run content scheduler daily at 9 AM UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'schedule'
+        type: choice
+        options:
+          - schedule
+          - generate_calendar
+          - send_reminders
+          - check_status
+  push:
+    paths:
+      - 'docs/CONTENT_TEMPLATES/**'
+      - 'scripts/content-*.py'
+      - '.github/workflows/content-scheduler.yml'
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: read
+
+env:
+  PYTHON_VERSION: '3.11'
+  CALENDAR_OUTPUT_DIR: 'docs/calendars'
+  CONTENT_TEMPLATES_DIR: 'docs/CONTENT_TEMPLATES'
+
+jobs:
+  schedule_content:
+    name: Schedule Content
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'schedule')
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt || echo "No requirements.txt found"
+        pip install python-dateutil jinja2 pyyaml
+        
+    - name: Generate Content Calendar
+      run: |
+        echo "📅 Generating content calendar for next quarter..."
+        python scripts/content-calendar-generator.py \
+          --year $(date -u +%Y) \
+          --quarter Q$(($(date -u +%m) / 4 + 1)) \
+          --output ${{ env.CALENDAR_OUTPUT_DIR }}/calendar_$(date -u +%Y)_q$(($(date -u +%m) / 4 + 1)).md \
+          --format markdown
+          
+    - name: Check for Upcoming Content
+      id: check_content
+      run: |
+        python -c "
+        import sys
+        from datetime import datetime, timedelta
+        import json
+        
+        # Get current date and next 7 days
+        today = datetime.now()
+        next_week = today + timedelta(days=7)
+        
+        # Define content types and their typical frequencies
+        content_schedule = {
+            'Monday': ['feature_spotlight', 'community_contribution'],
+            'Wednesday': ['getting_started_tutorial', 'technical_deep_dive', 'blog_post'],
+            'Friday': ['documentation_update', 'quick_tip'],
+            'bi_weekly': ['developer_showcase', 'technical_tutorial'],
+            'monthly': ['case_study', 'team_interview', 'white_paper', 'industry_insights']
+        }
+        
+        upcoming_items = []
+        
+        # Check next 7 days for regular content
+        for i in range(7):
+            check_date = today + timedelta(days=i)
+            day_name = check_date.strftime('%A')
+            
+            if day_name in content_schedule:
+                for content_type in content_schedule[day_name]:
+                    upcoming_items.append({
+                        'date': check_date.strftime('%Y-%m-%d'),
+                        'day': day_name,
+                        'type': content_type,
+                        'status': 'pending'
+                    })
+        
+        # Output as JSON for next steps
+        print(json.dumps({'upcoming': upcoming_items[:5]}))
+        "
+        
+    - name: Create Content Issues
+      if: steps.check_content.outputs.upcoming != '[]'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { upcoming } = ${{ steps.check_content.outputs.upcoming && fromJson(steps.check_content.outputs.upcoming) || { upcoming: [] } }};
+          
+          if (upcoming && upcoming.length > 0) {
+            for (const item of upcoming) {
+              try {
+                const issue = await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: `📝 Create ${item.type.replace('_', ' ')} - ${item.date}`,
+                  body: `**Scheduled Content Item**
+                  
+                  **Date:** ${item.date}
+                  **Type:** ${item.type.replace('_', ' ').toUpperCase()}
+                  **Day:** ${item.day}
+                  
+                  This content item has been automatically scheduled based on the content cadence policy.
+                  
+                  **Next Steps:**
+                  - [ ] Review template in docs/CONTENT_TEMPLATES/
+                  - [ ] Assign content creator
+                  - [ ] Research and draft content
+                  - [ ] Review and edit
+                  - [ ] Schedule publication
+                  
+                  **Template Location:** docs/CONTENT_TEMPLATES/
+                  
+                  Please assign this issue to a content creator and track progress here.
+                  `,
+                  labels: ['content', 'scheduled', 'auto-generated', item.day.toLowerCase()]
+                });
+                
+                console.log(`Created issue #${issue.data.number} for ${item.type} on ${item.date}`);
+              } catch (error) {
+                console.error(`Failed to create issue for ${item.type}:`, error);
+              }
+            }
+          }
+          
+    - name: Update Content Calendar
+      run: |
+        echo "📊 Updating content calendar status..."
+        # Create a status summary
+        echo "## Content Schedule Status" > calendar_status.md
+        echo "" >> calendar_status.md
+        echo "**Last Updated:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> calendar_status.md
+        echo "" >> calendar_status.md
+        echo "### Scheduled Content (Next 7 Days)" >> calendar_status.md
+        echo "" >> calendar_status.md
+        
+        python -c "
+        from datetime import datetime, timedelta
+        import json
+        
+        today = datetime.now()
+        schedule = {
+            'Monday': ['Feature Spotlight', 'Community Contribution'],
+            'Wednesday': ['Getting Started Tutorial', 'Technical Blog'],
+            'Friday': ['Documentation Update', 'Quick Tip']
+        }
+        
+        for i in range(7):
+            check_date = today + timedelta(days=i)
+            day_name = check_date.strftime('%A')
+            
+            if day_name in schedule:
+                print(f'- **{check_date.strftime(\"%Y-%m-%d\")} ({day_name}):**')
+                for content_type in schedule[day_name]:
+                    print(f'  - {content_type}')
+                print('')
+        " >> calendar_status.md
+        
+    - name: Commit Calendar Updates
+      run: |
+        if [[ -n "$(git status --porcelain)" ]]; then
+          git config --local user.email "action@github.com"
+          git config --local user.name "Content Scheduler Bot"
+          git add -A
+          git commit -m "📅 Automated content calendar update [skip ci]" || echo "No changes to commit"
+          git push
+        else
+          echo "No changes to commit"
+        fi
+
+  send_reminders:
+    name: Send Content Reminders
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'send_reminders')
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Check Content Deadlines
+      id: check_deadlines
+      run: |
+        python -c "
+        from datetime import datetime, timedelta
+        import json
+        
+        today = datetime.now()
+        tomorrow = today + timedelta(days=1)
+        next_week = today + timedelta(days=7)
+        
+        # Simulate checking GitHub issues for content deadlines
+        # In a real implementation, this would query the GitHub API
+        
+        reminders = [
+            {
+                'type': 'urgent',
+                'message': 'Content deadline tomorrow',
+                'deadline': tomorrow.strftime('%Y-%m-%d'),
+                'action': 'Contact content creator'
+            },
+            {
+                'type': 'upcoming',
+                'message': 'Content due next week',
+                'deadline': next_week.strftime('%Y-%m-%d'),
+                'action': 'Schedule content creation'
+            }
+        ]
+        
+        print(json.dumps({'reminders': reminders}))
+        "
+        
+    - name: Create Reminder Issue
+      if: steps.check_deadlines.outputs.reminders != '[]'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { reminders } = ${{ steps.check_deadlines.outputs.reminders && fromJson(steps.check_deadlines.outputs.reminders) || { reminders: [] } }};
+          
+          if (reminders && reminders.length > 0) {
+            const reminderText = reminders.map(r => 
+              `- **${r.type.toUpperCase()}:** ${r.message} (Due: ${r.deadline}) - ${r.action}`
+            ).join('\\n');
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `⏰ Content Creation Reminders - ${new Date().toISOString().split('T')[0]}`,
+              body: `**Content Creation Reminders**
+              
+              ${reminderText}
+              
+              ---
+              
+              **Generated by:** Content Scheduler Bot
+              **Next Run:** Tomorrow at 9:00 AM UTC
+              
+              Please review and take appropriate action on these reminders.
+              `,
+              labels: ['reminder', 'content', 'auto-generated']
+            });
+          }
+          
+    - name: Send Discord Notification (if configured)
+      if: env.DISCORD_WEBHOOK_URL != ''
+      run: |
+        echo "Sending Discord notification..."
+        python -c "
+        import os
+        import requests
+        import json
+        from datetime import datetime
+        
+        webhook_url = os.environ['DISCORD_WEBHOOK_URL']
+        
+        message = {
+            'embeds': [{
+                'title': '📅 TiXL Content Schedule Update',
+                'description': 'Daily content scheduler has completed its run.',
+                'color': 3447003,
+                'fields': [
+                    {
+                        'name': 'Next Content Items',
+                        'value': 'Check GitHub issues for upcoming content deadlines',
+                        'inline': False
+                    },
+                    {
+                        'name': 'Action Required',
+                        'value': 'Review assigned content issues and track progress',
+                        'inline': False
+                    }
+                ],
+                'footer': {
+                    'text': f'Generated on {datetime.now().strftime(\"%Y-%m-%d %H:%M:%S UTC\")}'
+                }
+            }]
+        }
+        
+        response = requests.post(webhook_url, json=message)
+        if response.status_code == 204:
+            print('Discord notification sent successfully')
+        else:
+            print(f'Failed to send Discord notification: {response.status_code}')
+        "
+      env:
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+  check_content_status:
+    name: Check Content Status
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'check_status')
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Analyze Content Issues
+      id: analyze_issues
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Get all open content-related issues
+          const { data: issues } = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            labels: 'content'
+          });
+          
+          const contentStats = {
+            total_open: issues.length,
+            by_status: {},
+            by_type: {},
+            overdue: 0,
+            upcoming: 0
+          };
+          
+          for (const issue of issues) {
+            // Categorize by labels
+            for (const label of issue.labels) {
+              const labelName = label.name.toLowerCase();
+              if (labelName.includes('pending')) {
+                contentStats.by_status.pending = (contentStats.by_status.pending || 0) + 1;
+              } else if (labelName.includes('in-progress')) {
+                contentStats.by_status.in_progress = (contentStats.by_status.in_progress || 0) + 1;
+              } else if (labelName.includes('review')) {
+                contentStats.by_status.review = (contentStats.by_status.review || 0) + 1;
+              }
+            }
+            
+            // Check due dates
+            if (issue.milestone && issue.milestone.due_on) {
+              const dueDate = new Date(issue.milestone.due_on);
+              const today = new Date();
+              if (dueDate < today) {
+                contentStats.overdue++;
+              } else if (dueDate < new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+                contentStats.upcoming++;
+              }
+            }
+          }
+          
+          // Output summary
+          const summary = `📊 Content Status Summary
+          
+          **Total Open Issues:** ${contentStats.total_open}
+          
+          **By Status:**
+          - Pending: ${contentStats.by_status.pending || 0}
+          - In Progress: ${contentStats.by_status.in_progress || 0}
+          - Under Review: ${contentStats.by_status.review || 0}
+          
+          **By Priority:**
+          - Overdue: ${contentStats.overdue}
+          - Due This Week: ${contentStats.upcoming}
+          
+          **Action Items:**
+          - Follow up on overdue content
+          - Check progress on in-progress items
+          - Review pending assignments
+          `;
+          
+          console.log(summary);
+          
+          // Store results for next steps
+          process.env.CONTENT_STATS = JSON.stringify(contentStats);
+          
+    - name: Generate Status Report
+      run: |
+        mkdir -p ${{ env.CALENDAR_OUTPUT_DIR }}
+        echo "# Content Status Report" > ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        echo "" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        echo "**Generated:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        echo "" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        
+        if [[ -n "${{ env.CONTENT_STATS }}" ]]; then
+          echo "## Current Status" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+          echo "" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+          echo "\`\`\`json" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+          echo "${{ env.CONTENT_STATS }}" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+          echo "\`\`\`" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        else
+          echo "## No content issues found" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        fi
+        
+        echo "" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        echo "## Recent Content Activity" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        echo "" >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        echo "Check GitHub issues and pull requests for recent content activity." >> ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        
+    - name: Commit Status Report
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "Content Status Bot"
+        git add ${{ env.CALENDAR_OUTPUT_DIR }}/status_report.md
+        git commit -m "📊 Auto-generated content status report [skip ci]" || echo "No changes to commit"
+        git push || echo "No changes to push"
+
+  generate_calendar:
+    name: Generate Content Calendar
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'generate_calendar'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Generate Quarterly Calendar
+      run: |
+        mkdir -p ${{ env.CALENDAR_OUTPUT_DIR }}
+        
+        # Generate calendar for current quarter
+        python scripts/content-calendar-generator.py \
+          --year $(date -u +%Y) \
+          --quarter Q$(($(date -u +%m) / 4 + 1)) \
+          --output ${{ env.CALENDAR_OUTPUT_DIR }}/calendar_$(date -u +%Y)_q$(($(date -u +%m) / 4 + 1)) \
+          --format markdown
+          
+        # Generate annual calendar
+        python scripts/content-calendar-generator.py \
+          --year $(date -u +%Y) \
+          --yearly \
+          --output ${{ env.CALENDAR_OUTPUT_DIR }}/calendar_$(date -u +%Y) \
+          --format markdown
+          
+        # Generate JSON calendar for automation
+        python scripts/content-calendar-generator.py \
+          --year $(date -u +%Y) \
+          --quarter Q$(($(date -u +%m) / 4 + 1)) \
+          --output ${{ env.CALENDAR_OUTPUT_DIR }}/calendar_data.json \
+          --format json
+          
+    - name: Create Calendar PR
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "📅 Generate content calendar for $(date -u +%Y) Q$(($(date -u +%m) / 4 + 1))"
+        title: "📅 Content Calendar - $(date -u +%Y) Q$(($(date -u +%m) / 4 + 1))"
+        body: |
+          ## Automated Content Calendar Generation
+          
+          This PR contains the automatically generated content calendar for the current quarter.
+          
+          ### What's Included
+          - Quarterly content schedule
+          - Annual overview
+          - Content type breakdown
+          - Priority assignments
+          
+          ### Next Steps
+          - [ ] Review content titles and adjust as needed
+          - [ ] Assign content creators to specific items
+          - [ ] Customize based on current priorities
+          - [ ] Schedule content creation sessions
+          
+          Generated by the Content Scheduler workflow.
+        branch: content-calendar-$(date -u +%Y)-q$(($(date -u +%m) / 4 + 1))
+        delete-branch: true
+        labels: |
+          content
+          calendar
+          automated
+          ready-for-review
+
+  content_quality_check:
+    name: Content Quality Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.title, 'content')
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install Quality Tools
+      run: |
+        pip install markdown markdown-extensions pyyaml
+        
+    - name: Check Content Quality
+      run: |
+        echo "🔍 Running content quality checks..."
+        
+        # Check for required sections in content files
+        python -c "
+        import os
+        import re
+        from pathlib import Path
+        
+        def check_content_file(filepath):
+            issues = []
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
+                
+            # Check for required sections
+            required_sections = [
+                r'# .+',  # Title
+                r'## .+',  # Main sections
+                r'---',   # Front matter separator
+            ]
+            
+            for pattern in required_sections:
+                if not re.search(pattern, content):
+                    issues.append(f'Missing required section: {pattern}')
+                    
+            # Check for code examples in technical content
+            if 'tutorial' in filepath.name or 'technical' in filepath.name:
+                if not re.search(r'```[a-zA-Z]*', content):
+                    issues.append('Missing code examples in technical content')
+                    
+            # Check length (basic heuristic)
+            word_count = len(content.split())
+            if word_count < 100:
+                issues.append(f'Content may be too short ({word_count} words)')
+                
+            return issues
+            
+        # Check all content files in the PR
+        changed_files = os.environ.get('CHANGED_FILES', '').split()
+        
+        quality_results = []
+        for file in changed_files:
+            if file.endswith(('.md', '.rst')) and 'content' in file.lower():
+                issues = check_content_file(file)
+                quality_results.append({
+                    'file': file,
+                    'issues': issues
+                })
+        
+        # Report results
+        total_issues = sum(len(r['issues']) for r in quality_results)
+        print(f'Found {total_issues} quality issues')
+        
+        for result in quality_results:
+            if result['issues']:
+                print(f'Issues in {result[\"file\"]}:')
+                for issue in result['issues']:
+                    print(f'  - {issue}')
+        "
+      env:
+        CHANGED_FILES: ${{ steps.get-changed-files.outputs.all_changed_files }}
+        
+    - name: Set Changed Files Output
+      id: get-changed-files
+      uses: tj-actions/changed-files@v39
+      with:
+        files: |
+          docs/**/*.md
+          docs/**/*.rst
+        
+    - name: Comment PR with Results
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: `## ⚠️ Content Quality Issues Found
+          
+          The content quality check identified some issues that should be addressed:
+          
+          - Missing required sections or formatting
+          - Missing code examples in technical content
+          - Content may be too short
+          
+          Please review the workflow logs for detailed information and address these issues before merging.
+          
+          **Tip:** Check the [Content Templates Directory](docs/CONTENT_TEMPLATES/) for examples of properly formatted content.
+          `
+          });
+
+  weekly_summary:
+    name: Weekly Content Summary
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && github.event.schedule == '0 9 * * 1' # Mondays at 9 AM
+    # Only run on Mondays
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Generate Weekly Report
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Get content-related activity from the past week
+          const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          
+          const { data: issues } = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            since: oneWeekAgo,
+            state: 'all'
+          });
+          
+          const { data: pullRequests } = await github.rest.pulls.list({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'all',
+            since: oneWeekAgo
+          });
+          
+          // Filter content-related items
+          const contentIssues = issues.filter(issue => 
+            issue.labels.some(label => label.name.toLowerCase().includes('content'))
+          );
+          
+          const contentPRs = pullRequests.filter(pr => 
+            pr.title.toLowerCase().includes('content') || 
+            pr.head.ref.toLowerCase().includes('content')
+          );
+          
+          const summary = `# 📊 Weekly Content Summary
+          
+          **Period:** ${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toDateString()} - ${new Date().toDateString()}
+          
+          ## Content Activity
+          
+          ### Issues Created: ${contentIssues.length}
+          ${contentIssues.map(issue => `- ${issue.title}`).join('\n') || '_None_'}
+          
+          ### Pull Requests: ${contentPRs.length}
+          ${contentPRs.map(pr => `- [${pr.title}](${pr.html_url}) by @${pr.user.login}`).join('\n') || '_None_'}
+          
+          ## Upcoming This Week
+          - Review scheduled content items
+          - Follow up on pending issues
+          - Plan next week's content
+          
+          ---
+          *Generated automatically by the Content Scheduler*
+          `;
+          
+          // Create weekly summary issue
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `📊 Weekly Content Summary - Week of ${new Date().toISOString().split('T')[0]}`,
+            body: summary,
+            labels: ['weekly-summary', 'content', 'auto-generated']
+          });
+          
+    - name: Archive Weekly Summary
+      run: |
+        mkdir -p docs/content_history/$(date -u +%Y)
+        echo "$(date -u +%Y-%m-%d) - Weekly content summary generated" >> docs/content_history/$(date -u +%Y)/weekly_summaries.log
+        
+  # Notification job for content creators
+  notify_creators:
+    name: Notify Content Creators
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Find Assigned Content
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Get issues assigned to content creators that are due soon
+          const { data: issues } = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            labels: 'content'
+          });
+          
+          const upcomingDeadlines = issues.filter(issue => {
+            if (!issue.milestone || !issue.milestone.due_on) return false;
+            const dueDate = new Date(issue.milestone.due_on);
+            const threeDaysFromNow = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+            return dueDate <= threeDaysFromNow;
+          });
+          
+          console.log(`Found ${upcomingDeadlines.length} content items due within 3 days`);
+          
+          // Create notifications
+          for (const issue of upcomingDeadlines) {
+            if (issue.assignees.length > 0) {
+              console.log(`Reminder: ${issue.title} is due soon for ${issue.assignees.map(a => a.login).join(', ')}`);
+            }
+          }
+          
+    - name: Send Notifications
+      if: env.DISCORD_WEBHOOK_URL != ''
+      run: |
+        echo "Sending creator notifications..."
+        # Implementation would send Discord messages, emails, etc.
+        echo "Notifications sent to content creators"

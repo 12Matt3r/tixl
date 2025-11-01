@@ -1,0 +1,12 @@
+Architectural-Governance.md - Missing last updated information
+Contribution-Guidelines.md - Missing last updated information
+Developer-Onboarding.md - Missing last updated information
+Quick-Start-Guide.md - Missing overview or table of contents
+Quick-Start-Guide.md - Missing last updated information
+Home.md - Missing overview or table of contents
+Home.md - Missing last updated information
+README.md - Missing last updated information
+Search-Optimization.md - Non-descriptive link text found
+Security-Guidelines.md - Missing last updated information
+link-validation-report.md - Missing overview or table of contents
+link-validation-report.md - Missing last updated information

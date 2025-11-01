@@ -1,0 +1,459 @@
+# Enhanced TiXL Azure DevOps Pipeline with Comprehensive Code Coverage
+# Includes advanced Coverlet integration, quality gates, and detailed reporting
+
+trigger:
+- main
+- develop
+- feature/*
+- coverage-*
+
+pr:
+- main
+- develop
+- feature/*
+- coverage-*
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  dotnetVersion: '9.0.x'
+  solutionPath: 'TiXL.sln'
+  testProjectPath: 'Tests/TiXL.Tests.csproj'
+  coverageOutputPath: '$(Build.ArtifactStagingDirectory)/coverage-reports'
+  dependencyScriptsPath: '$(System.DefaultWorkingDirectory)/docs/scripts'
+  configPath: '$(System.DefaultWorkingDirectory)/docs/config'
+  
+  # Coverage thresholds
+  coreMinLineCoverage: 80
+  coreMinBranchCoverage: 75
+  operatorsMinLineCoverage: 75
+  operatorsMinBranchCoverage: 70
+  
+  # Performance settings
+  maxTestExecutionTime: 300
+  coverageTimeout: 600
+
+stages:
+# Enhanced Build Stage
+- stage: Build
+  displayName: 'Build and Dependency Validation'
+  jobs:
+  - job: BuildAndValidate
+    displayName: 'Build with Dependency Audit'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+
+    # Pre-build dependency audit
+    - task: PowerShell@2
+      displayName: 'Run pre-build dependency audit'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/dependency-audit.ps1'
+        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/dependency-audit" -FailOnVulnerabilities -Severity "Medium"'
+        errorActionPreference: 'continue'
+
+    # Build with warnings as errors
+    - task: DotNetCoreCLI@2
+      displayName: 'Build solution'
+      inputs:
+        command: 'build'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) /p:TreatWarningsAsErrors=true /p:EnforceCodeStyleInBuild=true /v:minimal'
+
+    # Publish build artifacts
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish build artifacts'
+      inputs:
+        command: 'publish'
+        projects: '$(solutionPath)'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory) /p:PublishSingleFile=true'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish build artifacts'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'build-artifacts'
+        publishLocation: 'Container'
+
+# Enhanced Test Stage with Coverage
+- stage: TestAndCoverage
+  displayName: 'Tests with Comprehensive Coverage Analysis'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: RunTestsWithCoverage
+    displayName: 'Unit Tests and Coverage Collection'
+    timeoutInMinutes: 20
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore test dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(testProjectPath)'
+
+    # Install ReportGenerator for HTML reports
+    - task: DotNetCoreCLI@2
+      displayName: 'Install ReportGenerator'
+      inputs:
+        command: 'tool'
+        arguments: 'install --global ReportGenerator'
+        workingDirectory: '.'
+
+    # Run tests with Coverlet collection
+    - task: PowerShell@2
+      displayName: 'Run tests with coverage collection'
+      timeoutInMinutes: 15
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/coverage-analyzer.ps1'
+        arguments: |
+          -SolutionPath "$(solutionPath)" `
+          -TestProjectPath "$(testProjectPath)" `
+          -OutputPath "$(coverageOutputPath)" `
+          -ConfigPath "$(configPath)/coverage-thresholds.config" `
+          -GenerateHTMLReport `
+          -Verbose
+      errorActionPreference: 'continue'
+
+    # Run coverage quality gate
+    - task: PowerShell@2
+      displayName: 'Run coverage quality gate'
+      timeoutInMinutes: 5
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/coverage-quality-gate.ps1'
+        arguments: |
+          -CoverageSummaryPath "$(coverageOutputPath)/coverage-summary.json" `
+          -ConfigPath "$(configPath)/coverage-thresholds.config" `
+          -FailOnRegressions `
+          -BaselineFile "$(configPath)/coverage-baseline.json" `
+          -GenerateGitHubComment `
+          -Verbose
+      continueOnError: false
+
+    # Run unit tests with xUnit
+    - task: DotNetCoreCLI@2
+      displayName: 'Run unit tests'
+      timeoutInMinutes: 10
+      inputs:
+        command: 'test'
+        projects: '$(testProjectPath)'
+        arguments: |
+          --configuration $(buildConfiguration) 
+          --no-build 
+          --collect:"XPlat Code Coverage" 
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura 
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.ExcludeByFile="**/*Test*.cs,**/*Mock*.cs,**/*Benchmark*.cs,**/*Fixtures*.cs,**/*Examples*.cs" 
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.IncludeTestAssembly=false
+          --logger trx
+      publishTestResults: true
+
+    # Generate HTML coverage report using ReportGenerator
+    - task: PowerShell@2
+      displayName: 'Generate HTML coverage report'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/generate-coverage-report.ps1'
+        arguments: '-CoveragePath "$(coverageOutputPath)" -OutputPath "$(coverageOutputPath)/html-reports"'
+      continueOnError: true
+
+    # Publish coverage reports to Azure DevOps
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage to Azure DevOps'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(coverageOutputPath)/**/coverage.cobertura.xml'
+        reportDirectory: '$(coverageOutputPath)/html-reports'
+        pathToSources: '$(System.DefaultWorkingDirectory)/src'
+
+    # Publish test results
+    - task: PublishTestResults@2
+      displayName: 'Publish test results'
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '**/TestResults/*.trx'
+        testRunTitle: 'TiXL Unit Tests'
+
+    # Publish all coverage artifacts
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish coverage reports'
+      inputs:
+        PathtoPublish: '$(coverageOutputPath)'
+        ArtifactName: 'coverage-reports'
+        publishLocation: 'Container'
+
+# Performance Test Stage
+- stage: PerformanceTests
+  displayName: 'Performance and Load Testing'
+  dependsOn: 
+  - Build
+  - TestAndCoverage
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - job: RunBenchmarks
+    displayName: 'Run Performance Benchmarks'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Build benchmarks'
+      inputs:
+        command: 'build'
+        projects: 'Benchmarks/TiXL.Benchmarks.csproj'
+        arguments: '--configuration Release'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run benchmarks'
+      inputs:
+        command: 'run'
+        projects: 'Benchmarks/TiXL.Benchmarks.csproj'
+        arguments: '--configuration Release -- --job short --benchmarkdotnet'
+      continueOnError: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish benchmark results'
+      inputs:
+        PathtoPublish: 'BenchmarkDotNet.Artifacts'
+        ArtifactName: 'benchmark-results'
+        publishLocation: 'Container'
+
+# Package and Quality Stage
+- stage: PackageAndQuality
+  displayName: 'Package Creation and Final Quality Checks'
+  dependsOn: 
+  - Build
+  - TestAndCoverage
+  condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop'))
+  jobs:
+  - job: CreatePackages
+    displayName: 'Create NuGet Packages'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Create NuGet packages'
+      inputs:
+        command: 'pack'
+        projects: '$(solutionPath)'
+        arguments: |
+          --configuration $(buildConfiguration) 
+          --no-build 
+          /p:TreatWarningsAsErrors=true 
+          /p:PackageOutputPath=$(Build.ArtifactStagingDirectory)/packages
+          /p:GenerateDocumentationFile=true
+
+    # Final security scan
+    - task: PowerShell@2
+      displayName: 'Final security scan'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/vulnerability-scanner.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/security" -Severity "Low" -FailOnCritical'
+        errorActionPreference: 'stop'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish packages'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/packages'
+        ArtifactName: 'packages'
+        publishLocation: 'Container'
+
+# Documentation Generation Stage
+- stage: Documentation
+  displayName: 'Generate Documentation and Reports'
+  dependsOn: 
+  - Build
+  - TestAndCoverage
+  condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop'))
+  jobs:
+  - job: GenerateDocumentation
+    displayName: 'Generate Comprehensive Documentation'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Generate coverage documentation'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/generate-coverage-docs.ps1'
+        arguments: '-CoveragePath "$(coverageOutputPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/docs"'
+      continueOnError: true
+
+    - task: PowerShell@2
+      displayName: 'Generate quality report'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/generate-quality-report.ps1'
+        arguments: '-BuildPath "$(Build.ArtifactStagingDirectory)" -OutputPath "$(Build.ArtifactStagingDirectory)/docs"'
+      continueOnError: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish documentation'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/docs'
+        ArtifactName: 'documentation'
+        publishLocation: 'Container'
+
+# Quality Gates and Final Validation Stage
+- stage: QualityGates
+  displayName: 'Final Quality Gates and Validation'
+  dependsOn: 
+  - Build
+  - TestAndCoverage
+  - PackageAndQuality
+  condition: always()
+  jobs:
+  - job: QualityValidation
+    displayName: 'Comprehensive Quality Validation'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Run comprehensive quality gate'
+      timeoutInMinutes: 10
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/comprehensive-quality-gate.ps1'
+        arguments: |
+          -BuildPath "$(Build.ArtifactStagingDirectory)" `
+          -CoveragePath "$(coverageOutputPath)" `
+          -ConfigPath "$(configPath)" `
+          -GenerateReport `
+          -FailOnQualityIssues
+      continueOnError: false
+
+    - task: PowerShell@2
+      displayName: 'Generate build summary'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $buildStatus = if ("$(Agent.JobStatus)" -eq "Succeeded") { "✅ Succeeded" } else { "❌ Failed" }
+          $buildNumber = "$(Build.BuildNumber)"
+          $branch = "$(Build.SourceBranch)"
+          $commit = "$(Build.SourceVersion)"
+          
+          $summary = @"
+          TiXL Enhanced Build Summary
+          ============================
+          
+          Build: $buildNumber
+          Status: $buildStatus
+          Branch: $branch
+          Commit: $commit
+          Repository: $(Build.Repository.Name)
+          
+          Quality Assurance Features:
+          ✅ Comprehensive code coverage analysis
+          ✅ Coverage quality gates with thresholds
+          ✅ HTML coverage reports
+          ✅ Coverage regression detection
+          ✅ Performance benchmarking
+          ✅ Security vulnerability scanning
+          ✅ Automated documentation generation
+          
+          View Details: $(System.TeamFoundationCollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)
+          "@
+          
+          Write-Host $summary
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish quality reports'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'quality-reports'
+        publishLocation: 'Container'
+
+# Deploy Stage (Enhanced)
+- stage: Deploy
+  displayName: 'Deploy to Production'
+  dependsOn: 
+  - Build
+  - TestAndCoverage
+  - PackageAndQuality
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployToNuGet
+    displayName: 'Deploy to NuGet.org'
+    environment: 'Production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: NuGetCommand@2
+            displayName: 'Push to NuGet.org'
+            inputs:
+              command: 'push'
+              packagesToPush: '$(Pipeline.Workspace)/packages/**/*.nupkg'
+              nuGetFeedType: 'external'
+              publishFeedCredentials: 'NuGet.org'
+              allowPackageConflicts: false
+
+# Cleanup Stage
+- stage: Cleanup
+  displayName: 'Cleanup and Archival'
+  dependsOn: 
+  - Build
+  - TestAndCoverage
+  - PackageAndQuality
+  - Documentation
+  - QualityGates
+  - Deploy
+  condition: always()
+  jobs:
+  - job: Cleanup
+    displayName: 'Enhanced Cleanup and Archival'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Archive build artifacts'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Archive important artifacts for long-term analysis
+          $archivePath = "$(Pipeline.Workspace)/build-archive-$(Build.BuildNumber)"
+          New-Item -ItemType Directory -Path $archivePath -Force
+          
+          # Copy coverage and quality reports
+          Copy-Item -Path "$(Pipeline.Workspace)/coverage-reports/*" -Destination $archivePath -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$(Pipeline.Workspace)/quality-reports/*" -Destination $archivePath -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$(Pipeline.Workspace)/documentation/*" -Destination $archivePath -Recurse -Force -ErrorAction SilentlyContinue
+          
+          Write-Host "Build artifacts archived to: $archivePath"
+
+    - task: PowerShell@2
+      displayName: 'Clean temporary files'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Remove-Item -Path "**/bin" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "**/obj" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "$(Pipeline.Workspace)/cache" -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Cleanup completed"

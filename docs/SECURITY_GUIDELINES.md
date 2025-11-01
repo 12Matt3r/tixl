@@ -60,8 +60,35 @@ This document provides security guidelines for developers working on the TiXL pr
 - **DevOps Lead:** devops@tixl-project.org
 - **GitHub Security:** security-advisories@tixl-project.org
 
+## Security Analysis & Testing
+
+### Input Handling Security (TIXL-060)
+- **Document**: [`TIXL-060_Input_Handling_Security_Analysis.md`](TIXL-060_Input_Handling_Security_Analysis.md)
+- **Test Suite**: [`InputHandlingSecurityTests.cs`](../Tests/Security/InputHandlingSecurityTests.cs)
+- **Test Runner**: [`run-security-tests.sh`](../scripts/run-security-tests.sh) | [`run-security-tests.ps1`](../scripts/run-security-tests.ps1)
+
+### Key Security Findings
+- ✅ **BinaryFormatter**: Completely eliminated
+- ✅ **File I/O**: Secure with path validation and size limits
+- ✅ **Serialization**: System.Text.Json with security settings
+- ⚠️ **Network I/O**: Needs enhanced validation
+- ⚠️ **Audio/MIDI**: Requires buffer validation improvements
+
+### Running Security Tests
+```bash
+# Linux/macOS
+./scripts/run-security-tests.sh
+
+# Windows PowerShell
+./scripts/run-security-tests.ps1
+
+# Generate detailed report
+./scripts/run-security-tests.ps1 -GenerateReport
+```
+
 ## Additional Resources
 
 - [OWASP .NET Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/DotNet_Security_Cheat_Sheet.html)
 - [Microsoft Security Documentation](https://docs.microsoft.com/en-us/dotnet/standard/security/)
 - [GitHub Security Features](https://docs.github.com/en/code-security)
+- [TiXL Input Handling Security Analysis](TIXL-060_Input_Handling_Security_Analysis.md)

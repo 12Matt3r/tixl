@@ -1,0 +1,45 @@
+{
+  "LastUpdated": "2025-11-02T03:33:34Z",
+  "OverallMetrics": {
+    "AverageLineRate": 75.2,
+    "AverageBranchRate": 68.7,
+    "AverageMethodRate": 82.1
+  },
+  "Modules": {
+    "Core": {
+      "LineRate": 82.1,
+      "BranchRate": 76.5,
+      "MethodRate": 87.3
+    },
+    "Operators": {
+      "LineRate": 75.8,
+      "BranchRate": 70.2,
+      "MethodRate": 81.6
+    },
+    "Gfx": {
+      "LineRate": 68.3,
+      "BranchRate": 62.1,
+      "MethodRate": 76.4
+    },
+    "Gui": {
+      "LineRate": 65.7,
+      "BranchRate": 59.8,
+      "MethodRate": 72.1
+    },
+    "Editor": {
+      "LineRate": 70.2,
+      "BranchRate": 65.3,
+      "MethodRate": 78.9
+    },
+    "Resources": {
+      "LineRate": 89.3,
+      "BranchRate": 83.7,
+      "MethodRate": 92.8
+    }
+  },
+  "RegressionThresholds": {
+    "LineCoverage": 2.0,
+    "BranchCoverage": 2.0,
+    "MethodCoverage": 2.0
+  }
+}

@@ -41,22 +41,39 @@ stages:
         command: 'restore'
         projects: '$(solutionPath)'
 
-    # Pre-build dependency audit
+    # Enhanced NuGet audit with built-in NuGet auditing
+    - task: DotNetCoreCLI@2
+      displayName: 'NuGet package restore with audit'
+      inputs:
+        command: 'restore'
+        projects: '$(solutionPath)'
+        arguments: '--audit --audit-level high /p:TreatWarningsAsErrors=true'
+
+    # Pre-build enhanced dependency audit
     - task: PowerShell@2
-      displayName: 'Run pre-build dependency audit'
+      displayName: 'Run enhanced dependency audit'
       inputs:
         targetType: 'filePath'
         filePath: '$(dependencyScriptsPath)/dependency-audit.ps1'
-        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/dependency-audit" -FailOnVulnerabilities -Severity "Medium"'
+        arguments: '-SolutionPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/dependency-audit" -FailOnVulnerabilities -Severity "Medium" -GenerateReport'
         errorActionPreference: 'continue'
 
-    # Vulnerability scanning
+    # Enhanced vulnerability scanning with NVD and GitHub integration
     - task: PowerShell@2
-      displayName: 'Security vulnerability scan'
+      displayName: 'Enhanced security vulnerability scan'
       inputs:
         targetType: 'filePath'
-        filePath: '$(dependencyScriptsPath)/vulnerability-scanner.ps1'
-        arguments: '-ProjectPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/vulnerabilities" -Severity "Medium" -FailOnCritical'
+        filePath: '$(dependencyScriptsPath)/enhanced-vulnerability-scanner.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/vulnerabilities" -Severity "Medium" -FailOnCritical -GitHubToken $(GITHUB_TOKEN) -NVDApiKey $(NVD_API_KEY) -IncludeMSRC -GenerateSBOM'
+        errorActionPreference: 'continue'
+
+    # Automated vulnerability assessment and recommendations
+    - task: PowerShell@2
+      displayName: 'Run automated security assessment'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/security-scan.ps1'
+        arguments: '-Verbose -OutputPath "$(Build.ArtifactStagingDirectory)/security-assessment"'
         errorActionPreference: 'continue'
 
     # License compliance check
@@ -137,10 +154,93 @@ stages:
         codeCoverageTool: 'Cobertura'
         summaryFileLocation: '**/coverage.cobertura.xml'
 
-# Dependency Update Stage (Manual trigger for security updates)
+# Enhanced Security Remediation Stage (Manual trigger for critical security fixes)
+- stage: SecurityRemediation
+  displayName: 'Automated Security Remediation'
+  condition: and(
+    in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop'),
+    or(
+      eq(variables['Build.Reason'], 'Manual'),
+      and(eq(variables['Agent.JobStatus'], 'SucceededWithIssues'), ne(variables['System.TeamFoundationCollectionUri'], variables['System.TeamFoundationCollectionUri']))
+    )
+  )
+  variables:
+    dependencyReportsPath: '$(Build.ArtifactStagingDirectory)'
+  jobs:
+  - job: SecurityAssessment
+    displayName: 'Comprehensive Security Assessment'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: DownloadBuildArtifacts@0
+      displayName: 'Download vulnerability reports'
+      inputs:
+        buildType: 'current'
+        artifactName: 'dependency-reports'
+        downloadPath: '$(dependencyReportsPath)'
+
+    - task: PowerShell@2
+      displayName: 'Run enhanced vulnerability scanner'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/enhanced-vulnerability-scanner.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/security-assessment" -Severity "Medium" -FailOnCritical -GitHubToken $(GITHUB_TOKEN) -NVDApiKey $(NVD_API_KEY) -IncludeMSRC'
+        errorActionPreference: 'stop'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish security assessment'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/security-assessment'
+        ArtifactName: 'security-assessment'
+        publishLocation: 'Container'
+
+  - job: AutomatedRemediation
+    displayName: 'Automated Security Remediation'
+    condition: eq(variables['Build.Reason'], 'Manual')
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 9.0'
+      inputs:
+        packageType: 'sdk'
+        version: $(dotnetVersion)
+
+    - task: PowerShell@2
+      displayName: 'Run automated dependency remediation'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(dependencyScriptsPath)/automated-remediation.ps1'
+        arguments: '-ProjectPath "$(solutionPath)" -OutputPath "$(Build.ArtifactStagingDirectory)/remediation" -VulnerabilityReportPath "$(dependencyReportsPath)/dependency-audit/audit-report.json" -UpdateMode "SecurityOnly" -AutoApprove -TestAfterUpdate -CreatePR'
+        errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Generate remediation summary'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $remediationFiles = Get-ChildItem -Path "$(Build.ArtifactStagingDirectory)/remediation" -Filter "remediation-summary.md" -ErrorAction SilentlyContinue
+          if ($remediationFiles) {
+            Write-Host "## Automated Security Remediation Summary" -ForegroundColor Cyan
+            Write-Host "=========================================" -ForegroundColor Cyan
+            Get-Content $remediationFiles[0].FullName | Select-Object -Skip 3 | ForEach-Object { Write-Host $_ }
+          } else {
+            Write-Host "No remediation summary available" -ForegroundColor Yellow
+          }
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish remediation results'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/remediation'
+        ArtifactName: 'remediation-results'
+        publishLocation: 'Container'
+
+# Enhanced Dependency Update Stage (Manual trigger for security updates)
 - stage: DependencyUpdates
   displayName: 'Automated Dependency Updates'
-  condition: and(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['System.TeamFoundationCollectionUri'], variables['System.TeamFoundationCollectionUri']))
+  condition: and(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.Reason'], 'Manual'))
   jobs:
   - job: CheckForUpdates
     displayName: 'Check for available updates'

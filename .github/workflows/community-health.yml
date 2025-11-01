@@ -1,0 +1,689 @@
+name: TiXL Community Health Monitoring
+
+on:
+  schedule:
+    # Run daily at 08:00 UTC for metrics collection
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    inputs:
+      collection_type:
+        description: 'Type of collection to run'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - github-only
+          - discord-only
+          - nuget-only
+          - report-only
+      target_date:
+        description: 'Target date for weekly report (YYYY-MM-DD)'
+        required: false
+        type: string
+  push:
+    paths:
+      - 'scripts/community-health-monitor.py'
+      - 'scripts/weekly-health-report.py'
+      - '.github/workflows/community-health.yml'
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  collect-metrics:
+    name: Collect Community Metrics
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.collection_type != 'report-only' }}
+    
+    outputs:
+      collection-status: ${{ steps.check.outputs.status }}
+      metrics-file: ${{ steps.upload.outputs.artifact-id }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt || echo "requirements.txt not found, installing individual packages"
+        pip install requests aiohttp pandas matplotlib seaborn numpy python-dateutil pyyaml sqlite3
+      shell: bash
+    
+    - name: Create data directories
+      run: |
+        mkdir -p data reports/charts logs
+        echo "Created data directories"
+      shell: bash
+    
+    - name: Setup GitHub token
+      run: |
+        echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+        echo "GitHub token configured"
+      shell: bash
+    
+    - name: Configure environment variables
+      run: |
+        {
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}"
+          echo "GITHUB_OWNER=${{ github.repository_owner }}"
+          echo "GITHUB_REPO=${{ github.event.repository.name }}"
+          echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}"
+          echo "DISCORD_GUILD_ID=${{ secrets.DISCORD_GUILD_ID }}"
+          echo "SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}"
+          echo "DISCORD_ALERT_WEBHOOK=${{ secrets.DISCORD_ALERT_WEBHOOK }}"
+        } >> $GITHUB_ENV
+      shell: bash
+    
+    - name: Validate API tokens
+      run: |
+        echo "Checking GitHub token..."
+        if [ -z "$GITHUB_TOKEN" ]; then
+          echo "❌ GitHub token not configured"
+          exit 1
+        fi
+        echo "✅ GitHub token configured"
+        
+        echo "Checking Discord token..."
+        if [ -z "$DISCORD_BOT_TOKEN" ]; then
+          echo "⚠️  Discord token not configured - Discord metrics will be skipped"
+        else
+          echo "✅ Discord token configured"
+        fi
+      shell: bash
+    
+    - name: Run metrics collection
+      id: collect
+      run: |
+        echo "Starting metrics collection..."
+        
+        # Set collection type based on input or default
+        COLLECTION_TYPE="${{ github.event.inputs.collection_type || 'full' }}"
+        
+        if [ "$COLLECTION_TYPE" = "github-only" ] || [ "$COLLECTION_TYPE" = "full" ]; then
+          echo "Collecting GitHub metrics..."
+          python scripts/community-health-monitor.py --mode once --config config/health_monitor.yaml
+        fi
+        
+        if [ "$COLLECTION_TYPE" = "discord-only" ] || [ "$COLLECTION_TYPE" = "full" ]; then
+          echo "Collecting Discord metrics..."
+          python scripts/community-health-monitor.py --mode once --config config/health_monitor.yaml
+        fi
+        
+        if [ "$COLLECTION_TYPE" = "nuget-only" ] || [ "$COLLECTION_TYPE" = "full" ]; then
+          echo "Collecting NuGet metrics..."
+          python scripts/community-health-monitor.py --mode once --config config/health_monitor.yaml
+        fi
+        
+        echo "✅ Metrics collection completed"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+      shell: bash
+    
+    - name: Check collection status
+      id: check
+      run: |
+        if [ -f "data/community_health.db" ]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "✅ Database created successfully"
+          ls -la data/
+        else
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "❌ Database not found - collection may have failed"
+        fi
+      shell: bash
+    
+    - name: Generate collection summary
+      run: |
+        echo "## 📊 Metrics Collection Summary" > collection-summary.md
+        echo "" >> collection-summary.md
+        echo "**Collection Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> collection-summary.md
+        echo "**Collection Type:** ${{ github.event.inputs.collection_type || 'full' }}" >> collection-summary.md
+        echo "**Status:** ${{ steps.check.outputs.status }}" >> collection-summary.md
+        echo "" >> collection-summary.md
+        
+        if [ -f "data/community_health.db" ]; then
+          echo "### Database Statistics" >> collection-summary.md
+          echo "\`\`\`" >> collection-summary.md
+          sqlite3 data/community_health.db ".tables" >> collection-summary.md 2>/dev/null || echo "No tables found" >> collection-summary.md
+          echo "\`\`\`" >> collection-summary.md
+          
+          # Get record counts
+          echo "### Record Counts" >> collection-summary.md
+          for table in github_metrics discord_metrics nuget_metrics alerts; do
+            count=$(sqlite3 data/community_health.db "SELECT COUNT(*) FROM $table;" 2>/dev/null || echo "0")
+            echo "- $table: $count records" >> collection-summary.md
+          done
+        fi
+        
+        echo "**Workflow Run:** ${{ github.run_id }}" >> collection-summary.md
+        echo "**Commit:** ${{ github.sha }}" >> collection-summary.md
+      shell: bash
+    
+    - name: Upload collection artifacts
+      id: upload
+      run: |
+        # Create archive of collection data
+        tar -czf community-health-data.tar.gz data/ reports/ logs/ collection-summary.md
+        
+        echo "artifact-id=community-health-data" >> $GITHUB_OUTPUT
+        echo "artifact-size=$(du -sh community-health-data.tar.gz | cut -f1)" >> $GITHUB_OUTPUT
+        
+        # Upload to GitHub artifacts
+        echo "Uploading artifacts..."
+        echo "Artifacts content:"
+        ls -la
+      shell: bash
+    
+    - name: Upload to GitHub artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: community-health-data
+        path: |
+          data/community_health.db
+          collection-summary.md
+          community-health-data.tar.gz
+        retention-days: 30
+    
+    - name: Archive logs
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: collection-logs
+        path: logs/
+        retention-days: 7
+
+  generate-weekly-report:
+    name: Generate Weekly Health Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: collect-metrics
+    if: ${{ always() && (github.event_name != 'workflow_dispatch' || github.event.inputs.collection_type != 'report-only') }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Download collection artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: community-health-data
+        path: extracted/
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas matplotlib seaborn numpy python-dateutil pyyaml sqlite3
+      shell: bash
+    
+    - name: Restore database
+      run: |
+        if [ -f "extracted/community-health-data.tar.gz" ]; then
+          tar -xzf extracted/community-health-data.tar.gz
+          echo "✅ Database restored from archive"
+        elif [ -f "extracted/data/community_health.db" ]; then
+          cp -r extracted/data ./
+          echo "✅ Database restored from extracted files"
+        else
+          echo "⚠️  No database found - skipping report generation"
+          echo "db-status=missing" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        echo "db-status=found" >> $GITHUB_OUTPUT
+      shell: bash
+    
+    - name: Calculate report date
+      id: date
+      run: |
+        if [ -n "${{ github.event.inputs.target_date }}" ]; then
+          echo "report_date=${{ github.event.inputs.target_date }}" >> $GITHUB_OUTPUT
+        else
+          # Default to last Monday
+          echo "report_date=$(date -d 'last Monday' '+%Y-%m-%d')" >> $GITHUB_OUTPUT
+        fi
+        echo "📅 Report target date: ${{ steps.date.outputs.report_date }}"
+      shell: bash
+    
+    - name: Generate weekly report
+      id: report
+      run: |
+        echo "Generating weekly report for ${{ steps.date.outputs.report_date }}..."
+        python scripts/weekly-health-report.py \
+          --date ${{ steps.date.outputs.report_date }} \
+          --db-path data/community_health.db \
+          --output-dir reports/weekly/
+      continue-on-error: true
+      shell: bash
+    
+    - name: Create report summary
+      run: |
+        echo "## 📋 Weekly Report Summary" > weekly-report-summary.md
+        echo "" >> weekly-report-summary.md
+        echo "**Report Date:** ${{ steps.date.outputs.report_date }}" >> weekly-report-summary.md
+        echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> weekly-report-summary.md
+        echo "**Database Status:** ${{ needs.collect-metrics.outputs.collection-status }}" >> weekly-report-summary.md
+        echo "" >> weekly-report-summary.md
+        
+        if [ -d "reports/weekly" ]; then
+          echo "### Generated Reports" >> weekly-report-summary.md
+          ls -la reports/weekly/ >> weekly-report-summary.md
+          
+          # Extract key metrics if JSON report exists
+          json_file=$(find reports/weekly -name "*.json" -type f | head -1)
+          if [ -n "$json_file" ]; then
+            echo "" >> weekly-report-summary.md
+            echo "### Key Metrics" >> weekly-report-summary.md
+            echo "\`\`\`json" >> weekly-report-summary.md
+            python3 -c "
+import json
+try:
+    with open('$json_file') as f:
+        data = json.load(f)
+        print(json.dumps({
+            'overall_health': data.get('health_scores', {}).get('overall', 'N/A'),
+            'github_health': data.get('health_scores', {}).get('github', 'N/A'),
+            'discord_health': data.get('health_scores', {}).get('discord', 'N/A'),
+            'alerts_count': len(data.get('alerts', [])),
+            'recommendations_count': len(data.get('recommendations', []))
+        }, indent=2))
+except Exception as e:
+    print('Error reading JSON:', e)
+" >> weekly-report-summary.md
+            echo "\`\`\`" >> weekly-report-summary.md
+          fi
+        else
+          echo "❌ No reports generated" >> weekly-report-summary.md
+        fi
+      shell: bash
+    
+    - name: Upload weekly reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: weekly-reports
+        path: |
+          reports/weekly/
+          weekly-report-summary.md
+        retention-days: 90
+
+  create-issue-summary:
+    name: Create GitHub Issue Summary
+    runs-on: ubuntu-latest
+    needs: [collect-metrics, generate-weekly-report]
+    if: ${{ always() && github.event_name != 'workflow_dispatch' }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: all-artifacts/
+    
+    - name: Extract report summary
+      run: |
+        if [ -f "all-artifacts/weekly-reports/weekly-report-summary.md" ]; then
+          cp "all-artifacts/weekly-reports/weekly-report-summary.md" ./report-summary.md
+          echo "✅ Report summary extracted"
+        else
+          echo "⚠️  No report summary found"
+          echo "# TiXL Community Health Summary" > report-summary.md
+          echo "No weekly report generated." >> report-summary.md
+        fi
+      shell: bash
+    
+    - name: Create or update issue
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { readFileSync } = require('fs');
+          const reportSummary = readFileSync('report-summary.md', 'utf8');
+          
+          // Get current date for issue title
+          const today = new Date().toISOString().split('T')[0];
+          const title = `TiXL Community Health Summary - ${today}`;
+          
+          // Search for existing issue
+          const { data: existingIssues } = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            labels: 'community-health,weekly-summary'
+          });
+          
+          let issueNumber;
+          const existingIssue = existingIssues.find(issue => issue.title.includes(today));
+          
+          if (existingIssue) {
+            // Update existing issue
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: existingIssue.number,
+              body: reportSummary,
+              labels: ['community-health', 'weekly-summary']
+            });
+            issueNumber = existingIssue.number;
+            console.log(`Updated existing issue #${issueNumber}`);
+          } else {
+            // Create new issue
+            const { data: newIssue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: reportSummary,
+              labels: ['community-health', 'weekly-summary', 'automated']
+            });
+            issueNumber = newIssue.number;
+            console.log(`Created new issue #${issueNumber}`);
+          }
+          
+          // Add comment with workflow information
+          const workflowUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: issueNumber,
+            body: `📊 *This summary was generated by the [Community Health Monitoring workflow](${workflowUrl}).*`
+          });
+
+  send-notifications:
+    name: Send Health Notifications
+    runs-on: ubuntu-latest
+    needs: [collect-metrics, generate-weekly-report, create-issue-summary]
+    if: ${{ always() && (github.event_name != 'workflow_dispatch' || contains(github.event.inputs.notification_channels, 'slack')) }}
+    
+    steps:
+    - name: Download report summary
+      uses: actions/download-artifact@v3
+      with:
+        name: weekly-reports
+        path: reports/
+    
+    - name: Extract health scores
+      id: scores
+      run: |
+        json_file=$(find reports/weekly -name "*.json" -type f | head -1)
+        if [ -n "$json_file" ]; then
+          echo "overall=$(python3 -c "
+import json
+try:
+    with open('$json_file') as f:
+        data = json.load(f)
+        print(data.get('health_scores', {}).get('overall', 'N/A'))
+except:
+    print('N/A')
+")" >> $GITHUB_OUTPUT
+          echo "github=$(python3 -c "
+import json
+try:
+    with open('$json_file') as f:
+        data = json.load(f)
+        print(data.get('health_scores', {}).get('github', 'N/A'))
+except:
+    print('N/A')
+")" >> $GITHUB_OUTPUT
+          echo "discord=$(python3 -c "
+import json
+try:
+    with open('$json_file') as f:
+        data = json.load(f)
+        print(data.get('health_scores', {}).get('discord', 'N/A'))
+except:
+    print('N/A')
+")" >> $GITHUB_OUTPUT
+          echo "alerts=$(python3 -c "
+import json
+try:
+    with open('$json_file') as f:
+        data = json.load(f)
+        print(len(data.get('alerts', [])))
+except:
+    print('0')
+")" >> $GITHUB_OUTPUT
+        else
+          echo "overall=N/A" >> $GITHUB_OUTPUT
+          echo "github=N/A" >> $GITHUB_OUTPUT
+          echo "discord=N/A" >> $GITHUB_OUTPUT
+          echo "alerts=0" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
+    
+    - name: Send Slack notification
+      uses: 8398a7/action-slack@v3
+      if: ${{ always() && env.SLACK_WEBHOOK_URL != '' }}
+      with:
+        status: ${{ needs.collect-metrics.result == 'success' && needs.generate-weekly-report.result == 'success' && needs.create-issue-summary.result == 'success' && 'success' || 'failure' }}
+        channel: '#community-health'
+        text: |
+          📊 TiXL Community Health Update - ${{ needs.collect-metrics.outputs.collection-status == 'success' && '✅ Collected' || '❌ Failed' }}
+          
+          **Health Scores:**
+          • Overall: ${{ steps.scores.outputs.overall }}/100
+          • GitHub: ${{ steps.scores.outputs.github }}/100
+          • Discord: ${{ steps.scores.outputs.discord }}/100
+          • Active Alerts: ${{ steps.scores.outputs.alerts }}
+          
+          **Actions:**
+          • [View Dashboard](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          • [Weekly Report](${{ github.server_url }}/${{ github.repository }}/issues?q=is:issue+label:weekly-summary)
+          
+          <!channel>
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+    
+    - name: Send Discord notification
+      run: |
+        if [ -n "${{ secrets.DISCORD_ALERT_WEBHOOK }}" ]; then
+          echo "Sending Discord notification..."
+          
+          # Determine status emoji
+          if [ "${{ needs.collect-metrics.result }}" = "success" ] && \
+             [ "${{ needs.generate-weekly-report.result }}" = "success" ] && \
+             [ "${{ needs.create-issue-summary.result }}" = "success" ]; then
+            STATUS_EMOJI="✅"
+            STATUS_TEXT="Success"
+          else
+            STATUS_EMOJI="❌"
+            STATUS_TEXT="Failed"
+          fi
+          
+          OVERALL_SCORE="${{ steps.scores.outputs.overall }}"
+          ALERTS_COUNT="${{ steps.scores.outputs.alerts }}"
+          
+          DISCORD_PAYLOAD=$(cat <<EOF
+{
+  "embeds": [{
+    "title": "TiXL Community Health Update",
+    "description": "Weekly community health monitoring report",
+    "color": $([ "$STATUS_TEXT" = "Success" ] && echo "3066993" || echo "15158332"),
+    "fields": [
+      {
+        "name": "Overall Health Score",
+        "value": "$OVERALL_SCORE/100",
+        "inline": true
+      },
+      {
+        "name": "Collection Status",
+        "value": "$STATUS_EMOJI $STATUS_TEXT",
+        "inline": true
+      },
+      {
+        "name": "Active Alerts",
+        "value": "$ALERTS_COUNT",
+        "inline": true
+      }
+    ],
+    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)",
+    "footer": {
+      "text": "TiXL Community Health Monitor"
+    }
+  }]
+}
+EOF
+)
+          
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d "$DISCORD_PAYLOAD" \
+            "${{ secrets.DISCORD_ALERT_WEBHOOK }}"
+        else
+          echo "Discord webhook not configured"
+        fi
+      shell: bash
+    
+    - name: Create GitHub release note
+      uses: actions/github-script@v6
+      if: ${{ always() && github.ref == 'refs/heads/main' }}
+      with:
+        script: |
+          const { readFileSync } = require('fs');
+          
+          // Get the health scores
+          const overallScore = '${{ steps.scores.outputs.overall }}';
+          const githubScore = '${{ steps.scores.outputs.github }}';
+          const discordScore = '${{ steps.scores.outputs.discord }}';
+          const alertsCount = '${{ steps.scores.outputs.alerts }}';
+          
+          // Determine overall status
+          let status = '🟢 Good';
+          let statusColor = '#52c41a';
+          
+          if (parseFloat(overallScore) < 60) {
+            status = '🔴 Needs Attention';
+            statusColor = '#f5222d';
+          } else if (parseFloat(overallScore) < 80) {
+            status = '🟡 Monitor';
+            statusColor = '#faad14';
+          }
+          
+          // Create release note content
+          const releaseNote = `
+## 📊 TiXL Community Health Report
+**Date:** ${new Date().toISOString().split('T')[0]}
+**Status:** ${status}
+
+### Health Scores
+- **Overall:** ${overallScore}/100
+- **GitHub Repository:** ${githubScore}/100
+- **Discord Community:** ${discordScore}/100
+- **Active Alerts:** ${alertsCount}
+
+### Summary
+This week, the TiXL community health metrics show ${status.toLowerCase()} status. The automated monitoring system collected data from GitHub, Discord, and NuGet to provide comprehensive insights into community vitality.
+
+### Key Metrics
+- Repository activity and engagement trends
+- Community growth and participation patterns
+- Package adoption and usage statistics
+- Alert notifications for issues requiring attention
+
+### Next Steps
+- Continue monitoring daily metrics
+- Review recommendations in the weekly report
+- Address any critical alerts promptly
+- Engage with community based on insights
+
+---
+*Generated by [Community Health Monitoring](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})*
+          `;
+          
+          console.log('Release note created');
+          
+          // You could create a release or update a tracking issue here
+          // For now, we'll just log it
+          console.log(releaseNote);
+
+  cleanup-old-data:
+    name: Cleanup Old Data
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' && github.ref == 'refs/heads/main' }}
+    
+    steps:
+    - name: Cleanup old artifacts
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+          
+          // List all artifacts
+          const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+            owner,
+            repo,
+            run_id: context.runId - 1 // Previous run
+          });
+          
+          // Delete artifacts older than 30 days
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          
+          for (const artifact of artifacts) {
+            if (new Date(artifact.created_at) < thirtyDaysAgo) {
+              try {
+                await github.rest.actions.deleteArtifact({
+                  owner,
+                  repo,
+                  artifact_id: artifact.id
+                });
+                console.log(`Deleted old artifact: ${artifact.name}`);
+              } catch (error) {
+                console.log(`Failed to delete artifact ${artifact.name}:`, error.message);
+              }
+            }
+          }
+    
+    - name: Archive old reports
+      run: |
+        if [ -d "reports/weekly" ]; then
+          # Archive reports older than 90 days
+          find reports/weekly -name "*.md" -mtime +90 -exec mv {} reports/archive/ \; 2>/dev/null || true
+          find reports/weekly -name "*.json" -mtime +90 -exec mv {} reports/archive/ \; 2>/dev/null || true
+          echo "✅ Old reports archived"
+        fi
+      shell: bash
+
+  send-failure-notification:
+    name: Send Failure Notification
+    runs-on: ubuntu-latest
+    if: ${{ failure() }}
+    
+    steps:
+    - name: Send failure notification
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#devops-alerts'
+        text: |
+          🚨 TiXL Community Health Monitor Failed
+          
+          **Workflow:** ${{ github.workflow }}
+          **Run:** #${{ github.run_number }}
+          **Status:** Failed
+          **Time:** $(date -u)
+          
+          **Failed Jobs:**
+          ${{ toJson(needs) }}
+          
+          <!here>
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

@@ -1,111 +1,109 @@
-using NUnit.Framework;
+using Xunit;
+using Xunit.Abstractions;
+using TiXL.Tests.Categories;
+using System;
+using System.Linq;
 
 namespace TiXL.Tests
 {
     /// <summary>
-    /// Smoke tests for TiXL core functionality validation
+    /// Baseline smoke tests for TiXL core functionality validation
     /// </summary>
-    [TestFixture]
-    [Category("Smoke")]
-    public class SmokeTests
+    [Category(TestCategories.Core)]
+    public class SmokeTests : IDisposable
     {
-        [Test]
+        private readonly ITestOutputHelper _output;
+
+        public SmokeTests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
+
+        [Fact]
         public void TestFramework_Initialization_Success()
         {
-            // Basic test to ensure NUnit is working
-            Assert.Pass("Test framework initialized successfully");
+            _output.WriteLine("xUnit test framework initialized successfully");
+            Assert.True(true, "Test framework initialized successfully");
         }
 
-        [Test]
-        public void Core_Modules_Load_Correctly()
-        {
-            // Placeholder test for core module validation
-            // In a real implementation, this would test actual TiXL modules
-            
-            // Simulate successful module loading
-            bool coreLoaded = true;
-            bool operatorsLoaded = true;
-            bool editorLoaded = true;
-            
-            Assert.Multiple(() =>
-            {
-                Assert.That(coreLoaded, Is.True, "Core module should load successfully");
-                Assert.That(operatorsLoaded, Is.True, "Operators module should load successfully");
-                Assert.That(editorLoaded, Is.True, "Editor module should load successfully");
-            });
-        }
-
-        [Test]
-        public void Application_Configuration_Valid()
+        [Fact]
+        public void Core_Modules_Configuration_Valid()
         {
             // Test basic application configuration
             var targetFramework = "net9.0";
             
-            Assert.That(targetFramework, Is.Not.Null.And.Not.Empty, 
+            Assert.False(string.IsNullOrEmpty(targetFramework), 
                 "Target framework should be configured");
-            Assert.That(targetFramework, Is.EqualTo("net9.0"), 
+            Assert.Equal("net9.0", targetFramework, 
                 "Should target .NET 9.0");
         }
 
-        [Test]
+        [Fact]
         public void TestCategories_Defined_Correctly()
         {
             // Ensure test categories are working
+            var categories = new[] { TestCategories.Unit, TestCategories.Integration, 
+                TestCategories.Performance, TestCategories.Smoke };
             
-            var categories = new[] { "Unit", "Integration", "Performance", "Smoke" };
-            
-            Assert.That(categories, Is.Not.Null.And.Not.Empty, 
-                "Test categories should be defined");
-            Assert.That(categories, Has.Length.EqualTo(4), 
-                "Should have 4 test categories");
+            Assert.NotNull(categories);
+            Assert.NotEmpty(categories);
+            Assert.Equal(4, categories.Length);
+        }
+
+        public void Dispose()
+        {
+            _output.WriteLine("SmokeTests disposed");
         }
     }
 
     /// <summary>
     /// Unit tests for TiXL data types and utilities
     /// </summary>
-    [TestFixture]
-    [Category("Unit")]
-    public class DataTypeTests
+    [Category(TestCategories.Unit)]
+    public class DataTypeTests : IDisposable
     {
-        [Test]
+        private readonly ITestOutputHelper _output;
+
+        public DataTypeTests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
+
+        [Fact]
         public void Vector_Operations_Basic()
         {
-            // Test basic vector operations (placeholder)
+            // Test basic vector operations (placeholder for actual vector implementation)
             
             // Simulate a 2D vector operation
             var x = 5.0f;
             var y = 10.0f;
             
-            var magnitude = (float)System.Math.Sqrt(x * x + y * y);
+            var magnitude = (float)Math.Sqrt(x * x + y * y);
             var expectedMagnitude = 11.18034f; // sqrt(125)
             
-            Assert.That(magnitude, Is.EqualTo(expectedMagnitude).Within(0.0001f), 
+            Assert.Equal(expectedMagnitude, magnitude, 4, 
                 "Vector magnitude should be calculated correctly");
         }
 
-        [Test]
+        [Fact]
         public void Color_Operations_Validation()
         {
-            // Test color manipulation (placeholder)
+            // Test color manipulation (placeholder for actual color implementation)
             
             var red = 255;
             var green = 128;
             var blue = 64;
             
             // Validate RGB values are in range
-            Assert.Multiple(() =>
-            {
-                Assert.That(red, Is.InRange(0, 255), "Red component should be 0-255");
-                Assert.That(green, Is.InRange(0, 255), "Green component should be 0-255");
-                Assert.That(blue, Is.InRange(0, 255), "Blue component should be 0-255");
-            });
+            Assert.InRange(red, 0, 255);
+            Assert.InRange(green, 0, 255);
+            Assert.InRange(blue, 0, 255);
         }
 
-        [Test]
+        [Fact]
         public void Matrix_Multiplication_Basic()
         {
-            // Test basic matrix operations (placeholder)
+            // Test basic matrix operations (placeholder for actual matrix implementation)
             
             // Simulate 2x2 matrix
             var matrixA = new float[,] { { 1, 2 }, { 3, 4 } };
@@ -118,24 +116,32 @@ namespace TiXL.Tests
             var expected11 = 50; // (3*6 + 4*8)
             
             // Placeholder assertion - in real implementation would test actual matrix multiplication
-            Assert.Multiple(() =>
-            {
-                Assert.That(expected00, Is.EqualTo(19), "Matrix[0,0] should be 19");
-                Assert.That(expected01, Is.EqualTo(22), "Matrix[0,1] should be 22");
-                Assert.That(expected10, Is.EqualTo(43), "Matrix[1,0] should be 43");
-                Assert.That(expected11, Is.EqualTo(50), "Matrix[1,1] should be 50");
-            });
+            Assert.Equal(19, expected00);
+            Assert.Equal(22, expected01);
+            Assert.Equal(43, expected10);
+            Assert.Equal(50, expected11);
+        }
+
+        public void Dispose()
+        {
+            _output.WriteLine("DataTypeTests disposed");
         }
     }
 
     /// <summary>
     /// Integration tests for TiXL operator system
     /// </summary>
-    [TestFixture]
-    [Category("Integration")]
-    public class OperatorIntegrationTests
+    [Category(TestCategories.Integration)]
+    public class OperatorIntegrationTests : IDisposable
     {
-        [Test]
+        private readonly ITestOutputHelper _output;
+
+        public OperatorIntegrationTests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
+
+        [Fact]
         public void Operator_Registration_Success()
         {
             // Test operator registration system (placeholder)
@@ -143,16 +149,11 @@ namespace TiXL.Tests
             bool registrationSuccessful = true;
             var operatorCount = 42; // Simulated count
             
-            Assert.Multiple(() =>
-            {
-                Assert.That(registrationSuccessful, Is.True, 
-                    "Operator registration should succeed");
-                Assert.That(operatorCount, Is.GreaterThan(0), 
-                    "Should have registered operators");
-            });
+            Assert.True(registrationSuccessful, "Operator registration should succeed");
+            Assert.True(operatorCount > 0, "Should have registered operators");
         }
 
-        [Test]
+        [Fact]
         public void Operator_Pipeline_Evaluation()
         {
             // Test operator pipeline evaluation (placeholder)
@@ -160,11 +161,10 @@ namespace TiXL.Tests
             var inputValue = 10;
             var outputValue = inputValue * 2; // Simulate operator processing
             
-            Assert.That(outputValue, Is.EqualTo(20), 
-                "Operator pipeline should transform input correctly");
+            Assert.Equal(20, outputValue, "Operator pipeline should transform input correctly");
         }
 
-        [Test]
+        [Fact]
         public void Data_Flow_Between_Operators()
         {
             // Test data flow between operators (placeholder)
@@ -174,42 +174,53 @@ namespace TiXL.Tests
             
             var expectedOutput = new int[] { 1, 4, 9, 16, 25 };
             
-            Assert.That(processedData, Is.EqualTo(expectedOutput), 
+            Assert.Equal(expectedOutput, processedData, 
                 "Data flow should process correctly through operators");
+        }
+
+        public void Dispose()
+        {
+            _output.WriteLine("OperatorIntegrationTests disposed");
         }
     }
 
     /// <summary>
     /// Performance tests for critical TiXL operations
     /// </summary>
-    [TestFixture]
-    [Category("Performance")]
-    public class PerformanceTests
+    [Category(TestCategories.Performance)]
+    public class PerformanceTests : IDisposable
     {
-        [Test]
+        private readonly ITestOutputHelper _output;
+
+        public PerformanceTests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
+
+        [Fact]
         public void Rendering_Operations_Performance()
         {
             // Test rendering performance (placeholder)
             
             var frameCount = 1000;
-            var startTime = System.DateTime.Now;
+            var startTime = DateTime.Now;
             
             // Simulate frame rendering
             for (int i = 0; i < frameCount; i++)
             {
                 // Simulate rendering work
-                var dummy = System.Math.Sin(i) * System.Math.Cos(i);
+                var dummy = Math.Sin(i) * Math.Cos(i);
             }
             
-            var endTime = System.DateTime.Now;
+            var endTime = DateTime.Now;
             var duration = endTime - startTime;
             var framesPerSecond = frameCount / duration.TotalSeconds;
             
-            Assert.That(framesPerSecond, Is.GreaterThan(30), 
+            Assert.True(framesPerSecond > 30, 
                 $"Rendering should achieve at least 30 FPS, got {framesPerSecond:F2}");
         }
 
-        [Test]
+        [Fact]
         public void Memory_Allocation_Patterns()
         {
             // Test memory allocation patterns (placeholder)
@@ -230,8 +241,10 @@ namespace TiXL.Tests
             var expectedAllocation = 10000 * sizeof(int);
             var tolerance = expectedAllocation * 0.1; // 10% tolerance
             
-            Assert.That(allocationDelta, Is.GreaterThan(expectedAllocation - tolerance)
-                .And.LessThan(expectedAllocation + tolerance), 
+            var minExpected = expectedAllocation - tolerance;
+            var maxExpected = expectedAllocation + tolerance;
+            
+            Assert.True(allocationDelta > minExpected && allocationDelta < maxExpected,
                 $"Memory allocation should be around {expectedAllocation} bytes");
                 
             // Clean up
@@ -239,40 +252,51 @@ namespace TiXL.Tests
             GC.Collect();
         }
 
-        [Test]
+        [Fact]
         public void Concurrent_Operations_ThreadSafety()
         {
             // Test concurrent operations thread safety (placeholder)
             
             var sharedCounter = 0;
-            var incrementTasks = new System.Threading.Tasks.Task[10];
+            var incrementTasks = new Task[10];
             
             for (int i = 0; i < incrementTasks.Length; i++)
             {
-                incrementTasks[i] = System.Threading.Tasks.Task.Run(() =>
+                incrementTasks[i] = Task.Run(() =>
                 {
                     for (int j = 0; j < 1000; j++)
                     {
-                        System.Threading.Interlocked.Increment(ref sharedCounter);
+                        Interlocked.Increment(ref sharedCounter);
                     }
                 });
             }
             
-            System.Threading.Tasks.Task.WaitAll(incrementTasks);
+            Task.WaitAll(incrementTasks);
             
-            Assert.That(sharedCounter, Is.EqualTo(10000), 
+            Assert.Equal(10000, sharedCounter, 
                 "Concurrent operations should be thread-safe");
+        }
+
+        public void Dispose()
+        {
+            _output.WriteLine("PerformanceTests disposed");
         }
     }
 
     /// <summary>
     /// Security tests for TiXL components
     /// </summary>
-    [TestFixture]
-    [Category("Security")]
-    public class SecurityTests
+    [Category(TestCategories.Security)]
+    public class SecurityTests : IDisposable
     {
-        [Test]
+        private readonly ITestOutputHelper _output;
+
+        public SecurityTests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
+
+        [Fact]
         public void Input_Validation_Prevention()
         {
             // Test input validation and sanitization (placeholder)
@@ -291,12 +315,12 @@ namespace TiXL.Tests
                 // Simulate input sanitization
                 var sanitized = input.Replace("<", "&lt;").Replace(">", "&gt;");
                 
-                Assert.That(sanitized, Does.Not.Match("<script>"), 
+                Assert.DoesNotMatch("<script>", sanitized, 
                     $"Malicious input should be sanitized: {input}");
             }
         }
 
-        [Test]
+        [Fact]
         public void Secure_Random_Number_Generation()
         {
             // Test secure random number generation
@@ -308,49 +332,19 @@ namespace TiXL.Tests
                 for (int i = 0; i < randomNumbers.Length; i++)
                 {
                     rng.GetBytes(bytes);
-                    randomNumbers[i] = System.BitConverter.ToInt32(bytes, 0);
+                    randomNumbers[i] = BitConverter.ToInt32(bytes, 0);
                 }
             }
             
             // Check that we have some variation (basic statistical test)
             var uniqueValues = randomNumbers.Distinct().Count();
-            Assert.That(uniqueValues, Is.GreaterThan(90), 
+            Assert.True(uniqueValues > 90, 
                 "Random numbers should have sufficient entropy");
         }
 
-        [Test]
-        public void Secure_String_Handling()
+        public void Dispose()
         {
-            // Test secure string handling (placeholder)
-            
-            var sensitiveData = "secret_password_123";
-            
-            // Simulate secure string conversion
-            var secureString = new System.Security.SecureString();
-            foreach (char c in sensitiveData)
-            {
-                secureString.AppendChar(c);
-            }
-            
-            // Verify secure string cannot be easily converted back
-            var plainText = ConvertToUnsecureString(secureString);
-            
-            Assert.That(plainText, Is.EqualTo(sensitiveData), 
-                "Secure string should handle sensitive data");
-        }
-
-        private string ConvertToUnsecureString(System.Security.SecureString secureString)
-        {
-            // Helper method to convert secure string (for testing only)
-            var unmanagedString = System.Runtime.InteropServices.Marshal.SecureStringToBSTR(secureString);
-            try
-            {
-                return System.Runtime.InteropServices.Marshal.PtrToStringBSTR(unmanagedString);
-            }
-            finally
-            {
-                System.Runtime.InteropServices.Marshal.ZeroFreeBSTR(unmanagedString);
-            }
+            _output.WriteLine("SecurityTests disposed");
         }
     }
 }

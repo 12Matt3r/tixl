@@ -1,0 +1,788 @@
+name: License Compliance
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - '**.cs'
+      - '**.js'
+      - '**.ts'
+      - '**.py'
+      - '**.java'
+      - '**.cpp'
+      - '**.h'
+      - 'package.json'
+      - 'packages.config'
+      - 'requirements.txt'
+      - '**/LICENSE*'
+      - '**/license*'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**.cs'
+      - '**.js'
+      - '**.ts'
+      - '**.py'
+      - '**.java'
+      - '**.cpp'
+      - '**.h'
+      - 'package.json'
+      - 'packages.config'
+      - 'requirements.txt'
+      - '**/LICENSE*'
+      - '**/license*'
+  schedule:
+    # Run weekly on Sundays at 02:00 UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      scan_dependencies:
+        description: 'Scan dependencies'
+        required: false
+        default: 'true'
+        type: boolean
+      output_format:
+        description: 'Report output format'
+        required: false
+        default: 'markdown'
+        type: choice
+        options:
+          - json
+          - html
+          - csv
+          - markdown
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  license-validation:
+    name: License Compliance Validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better analysis
+        
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyyaml requests
+        
+    - name: Run License Validator
+      id: validate
+      run: |
+        echo "Running TiXL License Validator..."
+        
+        # Create the license validator script if it doesn't exist
+        if [ ! -f "scripts/license-validator.py" ]; then
+          echo "License validator script not found. Creating basic validator..."
+          mkdir -p scripts
+          cat > scripts/license-validator.py << 'EOF'
+#!/usr/bin/env python3
+"""
+Basic License Validator for TiXL
+"""
+import os
+import re
+import json
+from pathlib import Path
+from datetime import datetime
+
+def scan_files_for_licenses():
+    """Basic file scanning for license headers."""
+    extensions = ['.cs', '.js', '.ts', '.py', '.java', '.cpp', '.h']
+    compliant_files = 0
+    non_compliant_files = 0
+    issues = []
+    
+    for ext in extensions:
+        for file_path in Path('.').rglob(f'*{ext}'):
+            if any(skip in str(file_path) for skip in ['.git', 'node_modules', 'bin', 'obj']):
+                continue
+                
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                    
+                # Check for license headers
+                has_copyright = 'Copyright' in content
+                has_license = any(license_term in content.upper() for license_term in 
+                                ['MIT LICENSE', 'APACHE LICENSE', 'BSD LICENSE', 'GPL'])
+                
+                if has_copyright and has_license:
+                    compliant_files += 1
+                else:
+                    non_compliant_files += 1
+                    if not has_copyright:
+                        issues.append(f"Missing copyright: {file_path}")
+                    if not has_license:
+                        issues.append(f"Missing license header: {file_path}")
+                        
+            except Exception as e:
+                issues.append(f"Error reading {file_path}: {e}")
+    
+    return {
+        'compliant_files': compliant_files,
+        'non_compliant_files': non_compliant_files,
+        'total_files': compliant_files + non_compliant_files,
+        'issues': issues[:10]  # Limit issues reported
+    }
+
+def scan_dependencies():
+    """Basic dependency scanning."""
+    dependencies = []
+    
+    # Check for package.json
+    if Path('package.json').exists():
+        try:
+            import json
+            with open('package.json', 'r') as f:
+                package_data = json.load(f)
+            deps = {**package_data.get('dependencies', {}), **package_data.get('devDependencies', {})}
+            for name, version in deps.items():
+                dependencies.append({'name': name, 'version': version, 'source': 'npm'})
+        except Exception as e:
+            print(f"Error parsing package.json: {e}")
+    
+    # Check for requirements.txt
+    if Path('requirements.txt').exists():
+        try:
+            with open('requirements.txt', 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        parts = line.split('==')
+                        name = parts[0]
+                        version = parts[1] if len(parts) > 1 else 'unknown'
+                        dependencies.append({'name': name, 'version': version, 'source': 'pip'})
+        except Exception as e:
+            print(f"Error parsing requirements.txt: {e}")
+    
+    return dependencies
+
+if __name__ == '__main__':
+    print("TiXL License Compliance Validation")
+    print("=" * 50)
+    
+    file_results = scan_files_for_licenses()
+    dependency_results = scan_dependencies()
+    
+    print(f"Files scanned: {file_results['total_files']}")
+    print(f"Compliant files: {file_results['compliant_files']}")
+    print(f"Non-compliant files: {file_results['non_compliant_files']}")
+    print(f"Dependencies found: {len(dependency_results)}")
+    
+    if file_results['issues']:
+        print("\nIssues found:")
+        for issue in file_results['issues']:
+            print(f"  - {issue}")
+    
+    # Calculate compliance score
+    if file_results['total_files'] > 0:
+        score = (file_results['compliant_files'] / file_results['total_files']) * 100
+        print(f"\nCompliance Score: {score:.1f}%")
+        
+        if score < 90:
+            print("⚠️  Low compliance score detected")
+            exit(1)
+        else:
+            print("✅ Good compliance score")
+            exit(0)
+    else:
+        print("No files to validate")
+        exit(0)
+EOF
+        fi
+        
+        # Run the validator
+        python scripts/license-validator.py \
+          --project-path . \
+          --output-format ${{ github.event.inputs.output_format || 'markdown' }} \
+          --verbose
+        
+        # Save results for later steps
+        echo "VALIDATION_COMPLETED=true" >> $GITHUB_OUTPUT
+        
+    - name: Upload License Report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: license-compliance-report-${{ github.sha }}
+        path: |
+          license_compliance_report_*.md
+          license_compliance_report_*.json
+          license_compliance_report_*.html
+          license_compliance_report_*.csv
+        retention-days: 30
+        
+    - name: Comment PR with Results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Find the latest report file
+          const files = fs.readdirSync('.');
+          const reportFiles = files.filter(f => f.startsWith('license_compliance_report_'));
+          
+          if (reportFiles.length === 0) {
+            console.log('No report files found');
+            return;
+          }
+          
+          // Read the most recent report
+          const latestReport = reportFiles.sort().pop();
+          const reportContent = fs.readFileSync(latestReport, 'utf8');
+          
+          // Create a summary for the PR comment
+          let comment = '## 📋 License Compliance Report\n\n';
+          
+          // Extract key metrics from markdown report
+          const scoreMatch = reportContent.match(/Overall Compliance Score[:\s]*([\d.]+)%/);
+          const filesMatch = reportContent.match(/Files[:\s]*([\d\/]+)\s+compliant/);
+          const depsMatch = reportContent.match(/Dependencies[:\s]*([\d\/]+)\s+compliant/);
+          
+          if (scoreMatch) {
+            const score = parseFloat(scoreMatch[1]);
+            const emoji = score >= 90 ? '✅' : score >= 70 ? '⚠️' : '❌';
+            comment += `${emoji} **Compliance Score: ${score}%**\n\n`;
+          }
+          
+          if (filesMatch) {
+            comment += `📁 **Files:** ${filesMatch[1]} compliant\n`;
+          }
+          
+          if (depsMatch) {
+            comment += `📦 **Dependencies:** ${depsMatch[1]} compliant\n\n`;
+          }
+          
+          comment += '### 📊 Detailed Report\n';
+          comment += `Full report available in artifacts: \`${latestReport}\`\n\n`;
+          
+          comment += '---\n';
+          comment += '*This report was generated by the TiXL License Compliance workflow.*';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+          
+    - name: Check Compliance Threshold
+      run: |
+        if [ "${{ steps.validate.outcome }}" = "failure" ]; then
+          echo "❌ License validation failed - compliance below threshold"
+          exit 1
+        else
+          echo "✅ License validation passed"
+        fi
+        
+  dependency-scanning:
+    name: Dependency License Analysis
+    runs-on: ubuntu-latest
+    if: github.event.inputs.scan_dependencies == 'true' || github.event.inputs.scan_dependencies == '' || github.event_name != 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install licensecheck SPDX
+        
+    - name: Scan NuGet Dependencies
+      id: scan-nuget
+      run: |
+        echo "Scanning .NET/NuGet dependencies..."
+        
+        # Find all .csproj files
+        find . -name "*.csproj" -type f | head -5 | while read proj; do
+          echo "Scanning: $proj"
+          
+          # Extract package references (basic regex)
+          if grep -q "PackageReference" "$proj"; then
+            echo "Package references found in $proj"
+            grep -o 'PackageReference Include="[^"]*"' "$proj" | \
+              sed 's/PackageReference Include="//' | \
+              sed 's/"//' >> /tmp/nuget_deps.txt || true
+          fi
+        done
+        
+        # Check for packages.config
+        find . -name "packages.config" -type f | while read config; do
+          echo "Scanning: $config"
+          grep -o 'package id="[^"]*"' "$config" | \
+            sed 's/package id="//' | \
+            sed 's/"//' >> /tmp/nuget_deps.txt || true
+        done
+        
+        # Generate dependency report
+        if [ -f /tmp/nuget_deps.txt ]; then
+          sort -u /tmp/nuget_deps.txt > /tmp/unique_nuget_deps.txt
+          echo "Found $(wc -l < /tmp/unique_nuget_deps.txt) unique NuGet dependencies"
+          
+          # Create simple report
+          echo "# NuGet Dependencies Report" > nuget_deps_report.md
+          echo "Generated: $(date)" >> nuget_deps_report.md
+          echo "" >> nuget_deps_report.md
+          cat /tmp/unique_nuget_deps.txt >> nuget_deps_report.md
+        fi
+        
+    - name: Scan NPM Dependencies
+      id: scan-npm
+      run: |
+        echo "Scanning NPM dependencies..."
+        
+        # Find all package.json files
+        find . -name "package.json" -type f | head -5 | while read pkg; do
+          echo "Scanning: $pkg"
+          
+          if [ -f "$pkg" ]; then
+            # Basic extraction of dependencies
+            grep -A 20 '"dependencies"' "$pkg" | \
+              grep -E '^\s*"[^"]+"\s*:' | \
+              sed 's/.*"\([^"]*\)".*/\1/' >> /tmp/npm_deps.txt || true
+            
+            grep -A 20 '"devDependencies"' "$pkg" | \
+              grep -E '^\s*"[^"]+"\s*:' | \
+              sed 's/.*"\([^"]*\)".*/\1/' >> /tmp/npm_deps.txt || true
+          fi
+        done
+        
+        if [ -f /tmp/npm_deps.txt ]; then
+          sort -u /tmp/npm_deps.txt > /tmp/unique_npm_deps.txt
+          echo "Found $(wc -l < /tmp/unique_npm_deps.txt) unique NPM dependencies"
+          
+          # Create simple report
+          echo "# NPM Dependencies Report" > npm_deps_report.md
+          echo "Generated: $(date)" >> npm_deps_report.md
+          echo "" >> npm_deps_report.md
+          cat /tmp/unique_npm_deps.txt >> npm_deps_report.md
+        fi
+        
+    - name: Scan Python Dependencies
+      id: scan-python
+      run: |
+        echo "Scanning Python dependencies..."
+        
+        # Find requirements files
+        find . -name "requirements*.txt" -type f | while read req; do
+          echo "Scanning: $req"
+          
+          grep -v '^#' "$req" | \
+            grep -v '^$' | \
+            sed 's/[>=<].*//' >> /tmp/python_deps.txt || true
+        done
+        
+        if [ -f /tmp/python_deps.txt ]; then
+          sort -u /tmp/python_deps.txt > /tmp/unique_python_deps.txt
+          echo "Found $(wc -l < /tmp/unique_python_deps.txt) unique Python dependencies"
+          
+          # Create simple report
+          echo "# Python Dependencies Report" > python_deps_report.md
+          echo "Generated: $(date)" >> python_deps_report.md
+          echo "" >> python_deps_report.md
+          cat /tmp/unique_python_deps.txt >> python_deps_report.md
+        fi
+        
+    - name: Combine Dependency Reports
+      run: |
+        echo "# TiXL Dependency License Analysis" > dependency_analysis.md
+        echo "Generated: $(date)" >> dependency_analysis.md
+        echo "Commit: ${{ github.sha }}" >> dependency_analysis.md
+        echo "" >> dependency_analysis.md
+        
+        if [ -f nuget_deps_report.md ]; then
+          echo "## .NET/NuGet Dependencies" >> dependency_analysis.md
+          cat nuget_deps_report.md >> dependency_analysis.md
+          echo "" >> dependency_analysis.md
+        fi
+        
+        if [ -f npm_deps_report.md ]; then
+          echo "## NPM Dependencies" >> dependency_analysis.md
+          cat npm_deps_report.md >> dependency_analysis.md
+          echo "" >> dependency_analysis.md
+        fi
+        
+        if [ -f python_deps_report.md ]; then
+          echo "## Python Dependencies" >> dependency_analysis.md
+          cat python_deps_report.md >> dependency_analysis.md
+          echo "" >> dependency_analysis.md
+        fi
+        
+        echo "## Summary" >> dependency_analysis.md
+        echo "- NuGet dependencies: $([ -f /tmp/unique_nuget_deps.txt ] && wc -l < /tmp/unique_nuget_deps.txt || echo 0)" >> dependency_analysis.md
+        echo "- NPM dependencies: $([ -f /tmp/unique_npm_deps.txt ] && wc -l < /tmp/unique_npm_deps.txt || echo 0)" >> dependency_analysis.md
+        echo "- Python dependencies: $([ -f /tmp/unique_python_deps.txt ] && wc -l < /tmp/unique_python_deps.txt || echo 0)" >> dependency_analysis.md
+        
+    - name: Upload Dependency Analysis
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-analysis-${{ github.sha }}
+        path: |
+          dependency_analysis.md
+          nuget_deps_report.md
+          npm_deps_report.md
+          python_deps_report.md
+        retention-days: 30
+
+  license-compatibility:
+    name: License Compatibility Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check for License Files
+      id: check-licenses
+      run: |
+        echo "Checking for license files..."
+        
+        # Check for common license files
+        license_files=(
+          "LICENSE"
+          "LICENSE.txt"
+          "LICENSE.md"
+          "COPYING"
+          "COPYRIGHT"
+        )
+        
+        found_licenses=()
+        for license_file in "${license_files[@]}"; do
+          if [ -f "$license_file" ]; then
+            found_licenses+=("$license_file")
+            echo "Found: $license_file"
+          fi
+        done
+        
+        if [ ${#found_licenses[@]} -eq 0 ]; then
+          echo "❌ No license file found"
+          echo "Missing license file" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        else
+          echo "✅ Found ${#found_licenses[@]} license file(s)"
+          echo "License files found: ${found_licenses[*]}" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+    - name: Validate License Content
+      run: |
+        echo "Validating license content..."
+        
+        # Check if MIT license is present
+        if grep -q "MIT License" LICENSE* 2>/dev/null || \
+           grep -q "Permission is hereby granted" LICENSE* 2>/dev/null; then
+          echo "✅ MIT License detected"
+          echo "MIT License found and validated" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️  MIT License not clearly detected"
+          echo "License may be different or not properly formatted" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Check for copyright notice
+        if grep -q "Copyright.*TiXL" LICENSE* 2>/dev/null || \
+           grep -q "Copyright.*2025" LICENSE* 2>/dev/null; then
+          echo "✅ Copyright notice found"
+          echo "Copyright notice present" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️  Copyright notice may be missing"
+          echo "Copyright notice verification needed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+    - name: Check Third-Party Licenses
+      run: |
+        echo "Checking for third-party license files..."
+        
+        # Look for third-party licenses in common locations
+        third_party_locations=(
+          "ThirdPartyNotices.txt"
+          "NOTICE"
+          "NOTICES"
+          "THIRD-PARTY"
+          "third_party"
+          "licenses"
+        )
+        
+        found_third_party=()
+        for location in "${third_party_locations[@]}"; do
+          if [ -f "$location" ] || [ -d "$location" ]; then
+            found_third_party+=("$location")
+            echo "Found third-party license info: $location"
+          fi
+        done
+        
+        if [ ${#found_third_party[@]} -gt 0 ]; then
+          echo "✅ Third-party license information found"
+          echo "Third-party licenses: ${found_third_party[*]}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "ℹ️  No third-party license file detected"
+          echo "No third-party license file found (may be normal for small projects)" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  compliance-gating:
+    name: Compliance Gate
+    runs-on: ubuntu-latest
+    needs: [license-validation, dependency-scanning, license-compatibility]
+    if: always()
+    
+    steps:
+    - name: Check Job Status
+      run: |
+        echo "License validation: ${{ needs.license-validation.result }}"
+        echo "Dependency scanning: ${{ needs.dependency-scanning.result }}"
+        echo "License compatibility: ${{ needs.license-compatibility.result }}"
+        
+        # Check if all required jobs passed
+        if [ "${{ needs.license-validation.result }}" = "success" ] && \
+           [ "${{ needs.license-compatibility.result }}" != "failure" ]; then
+          echo "✅ All compliance checks passed"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Some compliance checks failed"
+          echo "status=failure" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Summary Report
+      if: always()
+      run: |
+        echo "## 📋 License Compliance Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### Job Results:" >> $GITHUB_STEP_SUMMARY
+        echo "- License Validation: ${{ needs.license-validation.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Dependency Scanning: ${{ needs.dependency-scanning.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- License Compatibility: ${{ needs.license-compatibility.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.license-validation.result }}" = "success" ] && \
+           [ "${{ needs.license-compatibility.result }}" != "failure" ]; then
+          echo "### ✅ Overall Status: PASS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All license compliance checks have passed. The changes meet the project's licensing requirements." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### ❌ Overall Status: FAIL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Some license compliance checks have failed. Please review the issues and make necessary corrections." >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "*This report was generated by the TiXL License Compliance workflow.*" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Fail on Critical Issues
+      if: needs.license-validation.result == 'failure'
+      run: |
+        echo "License validation failed. This is a critical compliance issue."
+        exit 1
+
+  security-advisory:
+    name: Security License Advisory
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check for Security-Sensitive Licenses
+      run: |
+        echo "Checking for security-sensitive license patterns..."
+        
+        # Define high-risk license patterns
+        high_risk_patterns=(
+          "GPL v3"
+          "AGPL"
+          "Copyleft"
+          "ShareAlike"
+        )
+        
+        found_risks=()
+        
+        # Check license files
+        for license_file in LICENSE*; do
+          if [ -f "$license_file" ]; then
+            for pattern in "${high_risk_patterns[@]}"; do
+              if grep -qi "$pattern" "$license_file"; then
+                found_risks+=("$license_file contains $pattern")
+                echo "⚠️  Risk detected: $license_file contains $pattern"
+              fi
+            done
+          fi
+        done
+        
+        if [ ${#found_risks[@]} -gt 0 ]; then
+          echo "## ⚠️ Security License Advisory" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The following security-sensitive license patterns were detected:" >> $GITHUB_STEP_SUMMARY
+          for risk in "${found_risks[@]}"; do
+            echo "- $risk" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please review these licenses with your legal and security teams." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ No security-sensitive license patterns detected"
+        fi
+
+  generate-report:
+    name: Generate Final Report
+    runs-on: ubuntu-latest
+    needs: [license-validation, dependency-scanning, license-compatibility, compliance-gating]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: ./artifacts
+        
+    - name: Generate Executive Summary
+      run: |
+        echo "# TiXL License Compliance Report" > final_compliance_report.md
+        echo "**Generated:** $(date)" >> final_compliance_report.md
+        echo "**Repository:** ${{ github.repository }}" >> final_compliance_report.md
+        echo "**Commit:** ${{ github.sha }}" >> final_compliance_report.md
+        echo "**Branch:** ${{ github.ref_name }}" >> final_compliance_report.md
+        echo "" >> final_compliance_report.md
+        
+        echo "## Executive Summary" >> final_compliance_report.md
+        echo "" >> final_compliance_report.md
+        
+        echo "### Job Status" >> final_compliance_report.md
+        echo "- License Validation: ${{ needs.license-validation.result }}" >> final_compliance_report.md
+        echo "- Dependency Scanning: ${{ needs.dependency-scanning.result }}" >> final_compliance_report.md
+        echo "- License Compatibility: ${{ needs.license-compatibility.result }}" >> final_compliance_report.md
+        echo "- Overall Compliance: ${{ needs.compliance-gating.outputs.status || 'pending' }}" >> final_compliance_report.md
+        echo "" >> final_compliance_report.md
+        
+        echo "### Compliance Score" >> final_compliance_report.md
+        if [ -f "artifacts/license-compliance-report-${{ github.sha }}"/license_compliance_report_*.md ]; then
+          # Extract score from the detailed report
+          score=$(grep -o "Overall Compliance Score: [0-9.]*%" "artifacts/license-compliance-report-${{ github.sha }}"/license_compliance_report_*.md | head -1)
+          echo "- $score" >> final_compliance_report.md
+        else
+          echo "- Score not available" >> final_compliance_report.md
+        fi
+        echo "" >> final_compliance_report.md
+        
+        echo "## Detailed Reports" >> final_compliance_report.md
+        echo "" >> final_compliance_report.md
+        
+        if [ -d "artifacts/license-compliance-report-${{ github.sha }}" ]; then
+          echo "### License Compliance Report" >> final_compliance_report.md
+          echo "Available in artifact: license-compliance-report-${{ github.sha }}" >> final_compliance_report.md
+          echo "" >> final_compliance_report.md
+        fi
+        
+        if [ -d "artifacts/dependency-analysis-${{ github.sha }}" ]; then
+          echo "### Dependency Analysis" >> final_compliance_report.md
+          echo "Available in artifact: dependency-analysis-${{ github.sha }}" >> final_compliance_report.md
+          echo "" >> final_compliance_report.md
+        fi
+        
+        echo "## Recommendations" >> final_compliance_report.md
+        echo "" >> final_compliance_report.md
+        
+        if [ "${{ needs.license-validation.result }}" = "success" ]; then
+          echo "✅ License compliance validation passed successfully" >> final_compliance_report.md
+        else
+          echo "❌ License compliance validation failed - review and fix issues" >> final_compliance_report.md
+        fi
+        
+        if [ "${{ needs.dependency-scanning.result }}" = "success" ]; then
+          echo "✅ Dependency scanning completed" >> final_compliance_report.md
+        else
+          echo "⚠️  Dependency scanning encountered issues" >> final_compliance_report.md
+        fi
+        
+        if [ "${{ needs.license-compatibility.result }}" = "success" ]; then
+          echo "✅ License compatibility check passed" >> final_compliance_report.md
+        else
+          echo "❌ License compatibility issues detected" >> final_compliance_report.md
+        fi
+        
+        echo "" >> final_compliance_report.md
+        echo "---" >> final_compliance_report.md
+        echo "*Generated by TiXL License Compliance Workflow*" >> final_compliance_report.md
+        
+    - name: Upload Final Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: final-license-compliance-report-${{ github.sha }}
+        path: final_compliance_report.md
+        retention-days: 90
+        
+    - name: Comment on PR with Summary
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          if (fs.existsSync('final_compliance_report.md')) {
+            const report = fs.readFileSync('final_compliance_report.md', 'utf8');
+            
+            // Extract summary section
+            const summaryMatch = report.match(/## Executive Summary([\s\S]*?)##/);
+            if (summaryMatch) {
+              const summary = summaryMatch[1].trim();
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 📋 License Compliance Summary\n\n${summary}\n\n📎 **Full Report:** Available in workflow artifacts`
+              });
+            }
+          }
+          
+    - name: Set Conclusion
+      if: always()
+      run: |
+        if [ "${{ needs.license-validation.result }}" = "success" ] && \
+           [ "${{ needs.license-compatibility.result }}" != "failure" ]; then
+          echo "conclusion=success" >> $GITHUB_OUTPUT
+          echo "✅ License compliance checks passed"
+        else
+          echo "conclusion=failure" >> $GITHUB_OUTPUT
+          echo "❌ License compliance checks failed"
+        fi

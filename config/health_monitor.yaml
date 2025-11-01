@@ -1,0 +1,253 @@
+# TiXL Community Health Monitor Configuration
+# Edit this file to customize monitoring parameters
+
+# GitHub Repository Configuration
+github:
+  # Repository owner (usually the organization/user name)
+  owner: "TiXL-Project"
+  
+  # Repository name
+  repo: "TiXL"
+  
+  # GitHub API rate limit (default: 5000 for authenticated requests)
+  api_rate_limit: 5000
+  
+  # Buffer to maintain (default: 100)
+  rate_limit_buffer: 100
+  
+  # Note: GITHUB_TOKEN should be set as an environment variable or GitHub secret
+
+# Discord Configuration
+discord:
+  # Discord bot token (set as environment variable)
+  # DISCORD_BOT_TOKEN
+  
+  # Guild/Server ID (set as environment variable)
+  # DISCORD_GUILD_ID
+  
+  # Discord API version
+  api_version: "v10"
+
+# NuGet Package Configuration
+nuget:
+  # List of packages to monitor
+  packages:
+    - "TiXL.Core"
+    - "TiXL.Operators"
+    - "TiXL.Graphics"
+    - "TiXL.AudioVisual"
+    - "TiXL.IO"
+  
+  # NuGet API base URL
+  api_base: "https://api.nuget.org/v3"
+
+# Database Configuration
+database:
+  # Path to SQLite database
+  path: "data/community_health.db"
+  
+  # Backup directory path
+  backup_path: "data/backups"
+
+# Alert Thresholds
+thresholds:
+  # Critical thresholds (require immediate attention)
+  critical:
+    # GitHub stars decline rate (as decimal, e.g., -0.10 = -10%)
+    stars_decline_rate: -0.10
+    
+    # Minimum commits per week
+    commit_frequency: 5
+    
+    # Minimum daily active Discord users
+    daily_active_users: 20
+    
+    # Minimum issue resolution rate (as decimal, e.g., 0.80 = 80%)
+    issue_resolution_rate: 0.80
+    
+    # Maximum PR review time in days
+    pr_velocity_days: 7
+    
+    # Maximum NuGet downloads decline rate (as decimal)
+    downloads_decline_rate: -0.25
+    
+    # Minimum test coverage (as decimal)
+    test_coverage: 0.70
+    
+    # Maximum response time in hours
+    response_time_hours: 2.0
+    
+    # Maximum time since last commit (days)
+    days_since_last_commit: 14
+    
+    # Maximum time since last release (days)
+    days_since_last_release: 60
+
+  # Warning thresholds (monitor closely)
+  warning:
+    # Minimum GitHub stars growth rate (as decimal)
+    stars_growth_rate: 0.05
+    
+    # Minimum new contributors per month
+    new_contributor_rate: 2
+    
+    # Minimum releases per month
+    release_frequency: 1
+    
+    # Minimum documentation completeness (as decimal)
+    documentation_completeness: 0.80
+    
+    # Maximum build failure rate (as decimal)
+    build_failure_rate: 0.05
+    
+    # Maximum PR review time in days
+    pr_review_time_days: 5
+    
+    # Maximum issue backlog growth rate
+    issue_backlog_growth_rate: 0.20
+
+# Alerting Configuration
+alerting:
+  # Webhook URLs (set as environment variables)
+  webhook_urls:
+    # Slack webhook for alerts
+    # SLACK_WEBHOOK_URL
+    # Discord webhook for alerts
+    # DISCORD_ALERT_WEBHOOK
+  
+  # Email recipients (comma-separated, set as environment variable)
+  # ALERT_EMAIL_RECIPIENTS: "user1@example.com,user2@example.com"
+  
+  # Notification channels to use
+  notification_channels:
+    - "slack"
+    - "discord"
+    # - "email"  # Uncomment if email service is configured
+
+# Monitoring Schedule
+monitoring:
+  # Collection interval in hours
+  collection_interval_hours: 1
+  
+  # Report generation schedule
+  weekly_report_day: "Monday"  # Day of week to generate reports
+  weekly_report_hour: 9        # Hour (24-hour format) to generate reports
+  
+  # Data retention (days)
+  data_retention_days: 365
+  
+  # Backup retention (days)
+  backup_retention_days: 90
+
+# Dashboard Configuration
+dashboard:
+  # Enable real-time updates
+  realtime_updates: true
+  
+  # Update interval in seconds
+  update_interval_seconds: 30
+  
+  # Chart configuration
+  charts:
+    # Default chart size
+    width: 800
+    height: 400
+    
+    # Color scheme
+    color_scheme: "husl"
+    
+    # Theme
+    theme: "light"  # "light" or "dark"
+  
+  # Mobile responsiveness
+  mobile_friendly: true
+  
+  # Export formats
+  export_formats:
+    - "png"
+    - "svg"
+    - "pdf"
+
+# Performance Settings
+performance:
+  # Maximum concurrent API requests
+  max_concurrent_requests: 10
+  
+  # Request timeout in seconds
+  request_timeout: 30
+  
+  # Retry configuration
+  max_retries: 3
+  retry_delay_seconds: 5
+  
+  # Cache configuration
+  cache_enabled: true
+  cache_ttl_seconds: 300  # 5 minutes
+  
+  # Rate limiting
+  rate_limit_per_minute: 60
+
+# Logging Configuration
+logging:
+  # Log level
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  
+  # Log file path
+  file_path: "logs/community_health.log"
+  
+  # Maximum log file size (MB)
+  max_file_size_mb: 100
+  
+  # Number of backup log files
+  backup_count: 5
+  
+  # Enable console logging
+  console_logging: true
+  
+  # Log format
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Security Settings
+security:
+  # API token encryption
+  encrypt_tokens: true
+  
+  # Audit logging
+  audit_logging: true
+  
+  # Input validation
+  validate_inputs: true
+  
+  # Secure headers
+  secure_headers: true
+  
+  # CORS configuration (for web dashboard)
+  cors_origins:
+    - "https://your-domain.com"
+    - "https://dashboard.tixl.community"
+
+# Feature Flags
+features:
+  # Enable Discord metrics collection
+  discord_metrics: true
+  
+  # Enable NuGet metrics collection
+  nuget_metrics: true
+  
+  # Enable predictive analytics
+  predictive_analytics: false
+  
+  # Enable anomaly detection
+  anomaly_detection: true
+  
+  # Enable trend analysis
+  trend_analysis: true
+  
+  # Enable custom alerts
+  custom_alerts: false
+  
+  # Enable data export
+  data_export: true
+  
+  # Enable API access
+  api_access: false

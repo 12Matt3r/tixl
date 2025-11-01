@@ -1,0 +1,586 @@
+# Dependency Vetting Pipeline Stage for TiXL
+# Integrates TIXL-015 dependency vetting process into CI/CD pipeline
+
+parameters:
+  - name: projectPath
+    type: string
+    default: 'TiXL.sln'
+  
+  - name: vettingLevel
+    type: string
+    default: 'standard'
+    values:
+    - basic
+    - standard
+    - strict
+    - security-first
+  
+  - name: failOnVettingFailure
+    type: boolean
+    default: true
+  
+  - name: enableAutomaticApproval
+    type: boolean
+    default: false
+  
+  - name: generateReports
+    type: boolean
+    default: true
+  
+  - name: createPullRequest
+    type: boolean
+    default: false
+  
+  - name: notifyStakeholders
+    type: boolean
+    default: true
+
+stages:
+- stage: DependencyVetting
+  displayName: 'TiXL-015 Dependency Vetting Process'
+  condition: succeeded()
+  variables:
+    VettingLevel: ${{ parameters.vettingLevel }}
+    ProjectPath: ${{ parameters.projectPath }}
+    FailOnFailure: ${{ parameters.failOnVettingFailure }}
+    
+  jobs:
+  - job: DependencyRequestValidation
+    displayName: 'Validate Dependency Request'
+    condition: eq('${{ parameters.vettingLevel }}', 'security-first')
+    steps:
+    - task: PowerShell@2
+      displayName: 'Run Initial Screening'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-vetting-screener.ps1'
+        arguments: >
+          -PackageName "$(PackageName)"
+          -Version "$(PackageVersion)"
+          -Source "$(PackageSource)"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/vetting/screening"
+          -Verbose
+      errorActionPreference: 'stop'
+
+    - task: PowerShell@2
+      displayName: 'Check Screening Results'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $screeningResults = Get-Content "$(Build.ArtifactStagingDirectory)/vetting/screening/*/screening-results.json" | ConvertFrom-Json
+          
+          Write-Host "Screening Status: $($screeningResults.overallStatus)" -ForegroundColor Cyan
+          Write-Host "Screening Score: $($screeningResults.score)/100" -ForegroundColor Cyan
+          
+          if ($screeningResults.overallStatus -eq "FAILED") {
+            Write-Host "❌ Dependency failed initial screening" -ForegroundColor Red
+            Write-Host "Issues:" -ForegroundColor Red
+            foreach ($issue in $screeningResults.issues) {
+              Write-Host "- $issue" -ForegroundColor Red
+            }
+            if (${{ parameters.failOnVettingFailure }}) {
+              exit 1
+            }
+          } else {
+            Write-Host "✅ Dependency passed initial screening" -ForegroundColor Green
+          }
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Screening Results'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/vetting/screening'
+        ArtifactName: 'dependency-screening-results'
+        publishLocation: 'Container'
+
+  - job: SecurityVulnerabilityAssessment
+    displayName: 'Security Vulnerability Assessment'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Setup .NET Environment'
+      inputs:
+        packageType: 'sdk'
+        version: '9.0.x'
+
+    - task: PowerShell@2
+      displayName: 'Run Comprehensive Security Scan'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-security-assessor.ps1'
+        arguments: >
+          -ProjectPath "$(ProjectPath)"
+          -PackageName "$(PackageName)"
+          -Version "$(PackageVersion)"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/vetting/security"
+          -Severity "Medium"
+          -FailOnCritical:$${{ parameters.failOnVettingFailure }}
+          -GenerateReport
+          -Verbose
+      errorActionPreference: 'stop'
+
+    - task: PowerShell@2
+      displayName: 'Analyze Security Results'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $securityResultsPath = "$(Build.ArtifactStagingDirectory)/vetting/security/security-assessment.json"
+          if (Test-Path $securityResultsPath) {
+            $securityResults = Get-Content $securityResultsPath | ConvertFrom-Json
+            
+            Write-Host "Security Assessment Results:" -ForegroundColor Cyan
+            Write-Host "- Overall Score: $($securityResults.overallScore)/100" -ForegroundColor White
+            Write-Host "- CVEs Found: $($securityResults.cveSummary.total)" -ForegroundColor Yellow
+            Write-Host "- Critical CVEs: $($securityResults.cveSummary.critical)" -ForegroundColor Red
+            Write-Host "- High CVEs: $($securityResults.cveSummary.high)" -ForegroundColor Red
+            Write-Host "- Medium CVEs: $($securityResults.cveSummary.medium)" -ForegroundColor Yellow
+            Write-Host "- Low CVEs: $($securityResults.cveSummary.low)" -ForegroundColor Yellow
+            
+            # Security gate check
+            if ($securityResults.cveSummary.critical -gt 0) {
+              Write-Host "❌ CRITICAL: Critical security vulnerabilities found" -ForegroundColor Red
+              if (${{ parameters.failOnVettingFailure }}) {
+                exit 1
+              }
+            }
+            
+            if ($securityResults.cveSummary.high -gt 0) {
+              Write-Host "⚠️ WARNING: High-severity vulnerabilities found" -ForegroundColor Yellow
+            }
+          } else {
+            Write-Host "⚠️ WARNING: Security assessment results not found" -ForegroundColor Yellow
+          }
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Security Assessment Results'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/vetting/security'
+        ArtifactName: 'security-assessment-results'
+        publishLocation: 'Container'
+
+  - job: LicenseComplianceCheck
+    displayName: 'License Compliance Validation'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Run License Compliance Analysis'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-license-checker.ps1'
+        arguments: >
+          -ProjectPath "$(ProjectPath)"
+          -PackageName "$(PackageName)"
+          -Version "$(PackageVersion)"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/vetting/license"
+          -CheckCompliance
+          -FailOnViolation:$${{ parameters.failOnVettingFailure }}
+          -GenerateReport
+      errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Process License Results'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $licenseResultsPath = "$(Build.ArtifactStagingDirectory)/vetting/license/license-compliance.json"
+          if (Test-Path $licenseResultsPath) {
+            $licenseResults = Get-Content $licenseResultsPath | ConvertFrom-Json
+            
+            Write-Host "License Compliance Results:" -ForegroundColor Cyan
+            Write-Host "- Package License: $($licenseResults.packageLicense)" -ForegroundColor White
+            Write-Host "- Compliance Status: $($licenseResults.complianceStatus)" -ForegroundColor $(if ($licenseResults.complianceStatus -eq "Compliant") { "Green" } else { "Red" })
+            Write-Host "- Legal Review Required: $($licenseResults.legalReviewRequired)" -ForegroundColor Yellow
+            
+            if ($licenseResults.complianceStatus -ne "Compliant") {
+              Write-Host "❌ License compliance issues detected" -ForegroundColor Red
+              Write-Host "Issues:" -ForegroundColor Red
+              foreach ($issue in $licenseResults.issues) {
+                Write-Host "- $issue" -ForegroundColor Red
+              }
+              if (${{ parameters.failOnVettingFailure }}) {
+                exit 1
+              }
+            }
+          } else {
+            Write-Host "⚠️ WARNING: License compliance results not found" -ForegroundColor Yellow
+          }
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish License Compliance Results'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/vetting/license'
+        ArtifactName: 'license-compliance-results'
+        publishLocation: 'Container'
+
+  - job: MaintenanceStatusEvaluation
+    displayName: 'Maintenance Status Evaluation'
+    condition: in('${{ parameters.vettingLevel }}', 'standard', 'strict')
+    steps:
+    - task: PowerShell@2
+      displayName: 'Analyze Maintenance Status'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-maintenance-analyzer.ps1'
+        arguments: >
+          -PackageName "$(PackageName)"
+          -Version "$(PackageVersion)"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/vetting/maintenance"
+          -GenerateReport
+      errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Review Maintenance Metrics'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $maintenanceResultsPath = "$(Build.ArtifactStagingDirectory)/vetting/maintenance/maintenance-report.json"
+          if (Test-Path $maintenanceResultsPath) {
+            $maintenanceResults = Get-Content $maintenanceResultsPath | ConvertFrom-Json
+            
+            Write-Host "Maintenance Analysis Results:" -ForegroundColor Cyan
+            Write-Host "- Overall Score: $($maintenanceResults.overallScore)/100" -ForegroundColor White
+            Write-Host "- Repository Activity: $($maintenanceResults.repositoryActivity)" -ForegroundColor Yellow
+            Write-Host "- Release Frequency: $($maintenanceResults.releaseFrequency)" -ForegroundColor Yellow
+            Write-Host "- Community Health: $($maintenanceResults.communityHealth)" -ForegroundColor Yellow
+            
+            if ($maintenanceResults.overallScore -lt 70) {
+              Write-Host "⚠️ WARNING: Low maintenance score detected" -ForegroundColor Yellow
+              Write-Host "Recommendation: Consider more actively maintained alternatives" -ForegroundColor Yellow
+            }
+          } else {
+            Write-Host "⚠️ WARNING: Maintenance analysis results not found" -ForegroundColor Yellow
+          }
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Maintenance Analysis Results'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/vetting/maintenance'
+        ArtifactName: 'maintenance-analysis-results'
+        publishLocation: 'Container'
+
+  - job: PerformanceImpactAnalysis
+    displayName: 'Performance Impact Assessment'
+    condition: in('${{ parameters.vettingLevel }}', 'strict')
+    steps:
+    - task: PowerShell@2
+      displayName: 'Run Performance Analysis'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-performance-analyzer.ps1'
+        arguments: >
+          -PackageName "$(PackageName)"
+          -Version "$(PackageVersion)"
+          -ProjectPath "$(ProjectPath)"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/vetting/performance"
+          -RunBenchmarks
+          -GenerateReport
+      errorActionPreference: 'continue'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Performance Analysis Results'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/vetting/performance'
+        ArtifactName: 'performance-analysis-results'
+        publishLocation: 'Container'
+
+  - job: IntegrationTesting
+    displayName: 'Integration and Compatibility Testing'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Run Integration Tests'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-integration-tester.ps1'
+        arguments: >
+          -PackageName "$(PackageName)"
+          -Version "$(PackageVersion)"
+          -ProjectPath "$(ProjectPath)"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/vetting/integration"
+          -TestScenarios @("Build", "UnitTests", "CrossPlatform")
+          -Verbose
+      errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Process Integration Test Results'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $integrationResultsPath = "$(Build.ArtifactStagingDirectory)/vetting/integration/integration-report.json"
+          if (Test-Path $integrationResultsPath) {
+            $integrationResults = Get-Content $integrationResultsPath | ConvertFrom-Json
+            
+            Write-Host "Integration Test Results:" -ForegroundColor Cyan
+            Write-Host "- Build Integration: $($integrationResults.buildIntegration.status)" -ForegroundColor $(if ($integrationResults.buildIntegration.status -eq "Success") { "Green" } else { "Red" })
+            Write-Host "- Unit Tests: $($integrationResults.unitTests.status)" -ForegroundColor $(if ($integrationResults.unitTests.status -eq "Pass") { "Green" } else { "Red" })
+            Write-Host "- Cross-platform: $($integrationResults.crossPlatform.status)" -ForegroundColor $(if ($integrationResults.crossPlatform.status -eq "Compatible") { "Green" } else { "Yellow" })
+            
+            $failedTests = $integrationResults.failedTests
+            if ($failedTests.Count -gt 0) {
+              Write-Host "❌ Integration test failures detected:" -ForegroundColor Red
+              foreach ($test in $failedTests) {
+                Write-Host "- $test" -ForegroundColor Red
+              }
+            }
+          } else {
+            Write-Host "⚠️ WARNING: Integration test results not found" -ForegroundColor Yellow
+          }
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Integration Test Results'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/vetting/integration'
+        ArtifactName: 'integration-test-results'
+        publishLocation: 'Container'
+
+  - job: ArchitectureReview
+    displayName: 'Architecture Compliance Review'
+    condition: in('${{ parameters.vettingLevel }}', 'standard', 'strict')
+    steps:
+    - task: PowerShell@2
+      displayName: 'Run Architecture Analysis'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-architecture-analyzer.ps1'
+        arguments: >
+          -PackageName "$(PackageName)"
+          -Version "$(PackageVersion)"
+          -ProjectPath "$(ProjectPath)"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/vetting/architecture"
+          -GenerateReport
+      errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Review Architecture Assessment'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $architectureResultsPath = "$(Build.ArtifactStagingDirectory)/vetting/architecture/architecture-review.json"
+          if (Test-Path $architectureResultsPath) {
+            $architectureResults = Get-Content $architectureResultsPath | ConvertFrom-Json
+            
+            Write-Host "Architecture Review Results:" -ForegroundColor Cyan
+            Write-Host "- Overall Score: $($architectureResults.overallScore)/5" -ForegroundColor White
+            Write-Host "- Principle Alignment: $($architectureResults.principleAlignment)/5" -ForegroundColor Yellow
+            Write-Host "- API Consistency: $($architectureResults.apiConsistency)/5" -ForegroundColor Yellow
+            Write-Host "- Coupling Level: $($architectureResults.couplingLevel)/5" -ForegroundColor Yellow
+            
+            if ($architectureResults.overallScore -lt 3.5) {
+              Write-Host "⚠️ WARNING: Low architecture alignment score" -ForegroundColor Yellow
+              Write-Host "Recommendation: Review architectural impact before approval" -ForegroundColor Yellow
+            }
+          } else {
+            Write-Host "⚠️ WARNING: Architecture review results not found" -ForegroundColor Yellow
+          }
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Architecture Review Results'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/vetting/architecture'
+        ArtifactName: 'architecture-review-results'
+        publishLocation: 'Container'
+
+  - job: VettingReportGeneration
+    displayName: 'Generate Comprehensive Vetting Report'
+    condition: always()
+    dependsOn:
+    - DependencyRequestValidation
+    - SecurityVulnerabilityAssessment
+    - LicenseComplianceCheck
+    - MaintenanceStatusEvaluation
+    - PerformanceImpactAnalysis
+    - IntegrationTesting
+    - ArchitectureReview
+    steps:
+    - task: PowerShell@2
+      displayName: 'Consolidate Vetting Results'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-vetting-consolidator.ps1'
+        arguments: >
+          -ProjectPath "$(ProjectPath)"
+          -PackageName "$(PackageName)"
+          -Version "$(PackageVersion)"
+          -VettingLevel "$(VettingLevel)"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/vetting/final"
+          -GenerateReport
+          -ExportResults
+      errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Determine Final Decision'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $finalResultsPath = "$(Build.ArtifactStagingDirectory)/vetting/final/vetting-summary.json"
+          if (Test-Path $finalResultsPath) {
+            $finalResults = Get-Content $finalResultsPath | ConvertFrom-Json
+            
+            Write-Host "`n" -NoNewline
+            Write-Host "=== FINAL VETTING DECISION ===" -ForegroundColor Cyan
+            Write-Host "Package: $(PackageName) v$(PackageVersion)" -ForegroundColor White
+            Write-Host "Overall Score: $($finalResults.overallScore)/100" -ForegroundColor White
+            Write-Host "Recommendation: $($finalResults.recommendation)" -ForegroundColor $(switch ($finalResults.recommendation) { "APPROVED" { "Green" } "CONDITIONALLY_APPROVED" { "Yellow" } "REJECTED" { "Red" } })
+            Write-Host "Risk Level: $($finalResults.riskLevel)" -ForegroundColor $(switch ($finalResults.riskLevel) { "low" { "Green" } "medium" { "Yellow" } "high" { "Red" } "critical" { "Magenta" } })
+            
+            Write-Host "`nScore Breakdown:" -ForegroundColor Cyan
+            Write-Host "- Security: $($finalResults.scores.security)/100" -ForegroundColor White
+            Write-Host "- License: $($finalResults.scores.license)/100" -ForegroundColor White
+            Write-Host "- Maintenance: $($finalResults.scores.maintenance)/100" -ForegroundColor White
+            Write-Host "- Performance: $($finalResults.scores.performance)/100" -ForegroundColor White
+            Write-Host "- Integration: $($finalResults.scores.integration)/100" -ForegroundColor White
+            Write-Host "- Architecture: $($finalResults.scores.architecture)/5" -ForegroundColor White
+            
+            # Decision logic
+            $approved = $false
+            if ($finalResults.recommendation -eq "APPROVED") {
+              $approved = $true
+              Write-Host "`n✅ VETTING APPROVED" -ForegroundColor Green
+              if (${{ parameters.enableAutomaticApproval }} -and $finalResults.overallScore -ge 95) {
+                Write-Host "🎯 Automatic approval criteria met" -ForegroundColor Green
+              }
+            } elseif ($finalResults.recommendation -eq "CONDITIONALLY_APPROVED") {
+              Write-Host "⚠️ CONDITIONAL APPROVAL - Review required" -ForegroundColor Yellow
+              Write-Host "Conditions:" -ForegroundColor Yellow
+              foreach ($condition in $finalResults.conditions) {
+                Write-Host "- $condition" -ForegroundColor Yellow
+              }
+            } else {
+              Write-Host "❌ VETTING REJECTED" -ForegroundColor Red
+              Write-Host "Reasons:" -ForegroundColor Red
+              foreach ($reason in $finalResults.rejectionReasons) {
+                Write-Host "- $reason" -ForegroundColor Red
+              }
+            }
+            
+            # Set pipeline variables for downstream use
+            Write-Host "##vso[task.setvariable variable=VettingApproved;isOutput=true]$approved"
+            Write-Host "##vso[task.setvariable variable=VettingScore;isOutput=true]$($finalResults.overallScore)"
+            Write-Host "##vso[task.setvariable variable=VettingRecommendation;isOutput=true]$($finalResults.recommendation)"
+            Write-Host "##vso[task.setvariable variable=RiskLevel;isOutput=true]$($finalResults.riskLevel)"
+          } else {
+            Write-Host "❌ FATAL: Vetting summary results not found" -ForegroundColor Red
+            if (${{ parameters.failOnVettingFailure }}) {
+              exit 1
+            }
+          }
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Final Vetting Reports'
+      condition: always()
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/vetting/final'
+        ArtifactName: 'dependency-vetting-results'
+        publishLocation: 'Container'
+
+  - job: StakeholderNotification
+    displayName: 'Notify Stakeholders'
+    condition: always()
+    dependsOn: VettingReportGeneration
+    steps:
+    - task: PowerShell@2
+      displayName: 'Send Notification'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-vetting-notifier.ps1'
+        arguments: >
+          -ProjectPath "$(ProjectPath)"
+          -PackageName "$(PackageName)"
+          -VettingResultsPath "$(Build.ArtifactStagingDirectory)/vetting/final"
+          -NotificationType "VettingComplete"
+          -Channels @("Email", "Teams")
+          -Stakeholders @("tech-lead@tixl.dev", "security@tixl.dev", "architecture@tixl.dev")
+      condition: eq('${{ parameters.notifyStakeholders }}', 'true')
+      errorActionPreference: 'continue'
+
+  - job: AutomatedApprovalWorkflow
+    displayName: 'Automated Approval Workflow'
+    condition: and(eq('${{ parameters.enableAutomaticApproval }}', 'true'), eq(variables['VettingApproved'], 'true'))
+    dependsOn:
+    - VettingReportGeneration
+    - StakeholderNotification
+    steps:
+    - task: PowerShell@2
+      displayName: 'Update Dependency Registry'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-registry-manager.ps1'
+        arguments: >
+          -Action add
+          -PackageName "$(PackageName)"
+          -Version "$(PackageVersion)"
+          -RegistryPath "$(System.DefaultWorkingDirectory)/docs/config/dependency-registry.json"
+          -Verbose
+      errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Create Integration Pull Request'
+      inputs:
+        targetType: 'inline'
+        script: |
+          if (${{ parameters.createPullRequest }}) {
+            Write-Host "Creating pull request for dependency integration..." -ForegroundColor Cyan
+            
+            # This would integrate with GitHub/Azure DevOps APIs
+            # to create a PR with the dependency changes
+            
+            Write-Host "✅ Pull request creation would be implemented here" -ForegroundColor Green
+          } else {
+            Write-Host "Pull request creation disabled" -ForegroundColor Yellow
+          }
+      condition: eq('${{ parameters.createPullRequest }}', 'true')
+
+- stage: DependencyMonitoring
+  displayName: 'Ongoing Dependency Monitoring Setup'
+  condition: and(succeeded(), eq(variables['VettingApproved'], 'true'))
+  dependsOn: DependencyVetting
+  variables:
+    MonitorNewDependency: 'true'
+    
+  jobs:
+  - job: SetupMonitoring
+    displayName: 'Setup Continuous Monitoring'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Configure Health Monitoring'
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(System.DefaultWorkingDirectory)/docs/scripts/dependency-registry-manager.ps1'
+        arguments: >
+          -Action monitor
+          -RegistryPath "$(System.DefaultWorkingDirectory)/docs/config/dependency-registry.json"
+          -OutputPath "$(Build.ArtifactStagingDirectory)/monitoring"
+          -Verbose
+      errorActionPreference: 'continue'
+
+    - task: PowerShell@2
+      displayName: 'Schedule Health Checks'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "📅 Setting up scheduled health checks for $(PackageName)" -ForegroundColor Cyan
+          
+          # This would integrate with Azure DevOps scheduling or external scheduling tools
+          # to set up recurring health checks for the new dependency
+          
+          $monitoringConfig = @{
+            packageName = "$(PackageName)"
+            version = "$(PackageVersion)"
+            healthCheckSchedule = "weekly"
+            securityScanSchedule = "daily"
+            alertingEnabled = $true
+          }
+          
+          $monitoringConfig | ConvertTo-Json | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/monitoring-schedule.json"
+          
+          Write-Host "✅ Monitoring schedule configured" -ForegroundColor Green
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Monitoring Configuration'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/monitoring'
+        ArtifactName: 'dependency-monitoring-config'
+        publishLocation: 'Container'

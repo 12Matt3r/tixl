@@ -1,0 +1,570 @@
+{
+  "version": "1.0",
+  "description": "Configuration for TiXL Dependency Vetting Process (TIXL-015)",
+  "lastUpdated": "2025-11-02T03:20:51Z",
+
+  "screening": {
+    "description": "Initial automated screening criteria",
+    "minimumDownloads": 100,
+    "maxAgeMonths": 24,
+    "maxPackageSizeMB": 50,
+    "requiredSemVer": true,
+    "requiredOfficialRepo": true,
+    "rejectionReasons": {
+      "noOfficialSource": "Package not available from official repository",
+      "insufficientDownloads": "Package has insufficient download count",
+      "outdated": "Package not updated within required timeframe",
+      "invalidVersioning": "Package does not follow semantic versioning",
+      "tooLarge": "Package exceeds size limits"
+    }
+  },
+
+  "security": {
+    "description": "Security assessment criteria and thresholds",
+    "thresholds": {
+      "criticalVulnerabilities": 0,
+      "highVulnerabilities": 0,
+      "mediumVulnerabilities": 2,
+      "lowVulnerabilities": 10,
+      "maxCVSSScore": 7.0,
+      "vulnerabilityAgeLimitDays": 365,
+      "minimumSecurityScore": 95
+    },
+    "scanning": {
+      "enabledSources": [
+        "nvd",
+        "github",
+        "nuget"
+      ],
+      "cacheEnabled": true,
+      "cacheTTLHours": 24,
+      "parallelScans": 4,
+      "timeoutMinutes": 30
+    },
+    "exclusions": {
+      "packages": [],
+      "vulnerabilities": [],
+      "cvssScoresBelow": 4.0
+    },
+    "blockCriteria": {
+      "criticalCVEs": true,
+      "highCVEs": true,
+      "unpatchedHighCVEs": true,
+      "securityScoreBelow": 80
+    }
+  },
+
+  "license": {
+    "description": "License compliance and compatibility criteria",
+    "categories": {
+      "approved": {
+        "licenses": [
+          "MIT",
+          "Apache-2.0",
+          "BSD-2-Clause",
+          "BSD-3-Clause",
+          "ISC",
+          "Unlicense",
+          "CC0-1.0"
+        ],
+        "conditions": [],
+        "requiresAttribution": false
+      },
+      "conditional": {
+        "licenses": [
+          "GPL-3.0",
+          "LGPL-3.0",
+          "MPL-2.0",
+          "EPL-2.0",
+          "CDDL-1.0",
+          "Artistic-2.0"
+        ],
+        "conditions": [
+          "legalReviewRequired",
+          "attributionRequired",
+          "sourceRedistributionRequired"
+        ],
+        "requiresApproval": true
+      },
+      "prohibited": {
+        "licenses": [
+          "AGPL-3.0",
+          "SSPL-1.0",
+          "GPL-2.0",
+          "Proprietary",
+          "Unknown"
+        ],
+        "conditions": [
+          "commercialUseRestricted",
+          "sourceCodeRequired",
+          "unknownTerms"
+        ],
+        "requiresApproval": false
+      },
+      "reviewRequired": {
+        "licenses": [
+          "BSD-4-Clause",
+          "Academic-2.0",
+          "Zlib",
+          "Boost-1.0"
+        ],
+        "conditions": [
+          "legalReviewRecommended",
+          "commercialTermsCheck"
+        ],
+        "requiresApproval": true
+      }
+    },
+    "complianceRules": {
+      "requireLicenseDetection": true,
+      "allowUnknownLicenses": false,
+      "requireAttributionTracking": true,
+      "enforceCommercialUse": true,
+      "requireSourceRedistributionCompliance": false
+    },
+    "legalReviewTriggers": [
+      "conditionalLicense",
+      "commercialUseImplications",
+      "sourceCodeRequirements",
+      "trademarkConsiderations"
+    ]
+  },
+
+  "maintenance": {
+    "description": "Maintenance and community health evaluation criteria",
+    "scoring": {
+      "lastCommitDays": {
+        "weight": 0.2,
+        "excellentDays": 30,
+        "goodDays": 90,
+        "acceptableDays": 180,
+        "poorDays": 365
+      },
+      "releaseFrequency": {
+        "weight": 0.2,
+        "excellentPerYear": 6,
+        "goodPerYear": 3,
+        "acceptablePerYear": 1,
+        "poorPerYear": 0
+      },
+      "issueResponseTime": {
+        "weight": 0.15,
+        "excellentDays": 7,
+        "goodDays": 14,
+        "acceptableDays": 30,
+        "poorDays": 90
+      },
+      "contributorCount": {
+        "weight": 0.1,
+        "excellentMin": 10,
+        "goodMin": 5,
+        "acceptableMin": 2,
+        "poorMin": 1
+      },
+      "documentationScore": {
+        "weight": 0.15,
+        "excellentMin": 0.9,
+        "goodMin": 0.7,
+        "acceptableMin": 0.5,
+        "poorMin": 0.3
+      },
+      "testCoverage": {
+        "weight": 0.2,
+        "excellentMin": 0.8,
+        "goodMin": 0.6,
+        "acceptableMin": 0.4,
+        "poorMin": 0.2
+      }
+    },
+    "thresholds": {
+      "minimumScore": 70,
+      "preferredScore": 85,
+      "criticalScore": 50
+    },
+    "communityMetrics": {
+      "github": {
+        "requireRepository": true,
+        "minStars": 10,
+        "minForks": 5,
+        "minWatchers": 3
+      },
+      "nuget": {
+        "minDownloads": 1000,
+        "downloadGrowthRequired": true,
+        "recentActivityWeight": 0.3
+      }
+    }
+  },
+
+  "performance": {
+    "description": "Performance impact assessment criteria",
+    "metrics": {
+      "packageSizeMB": {
+        "max": 10,
+        "warning": 5,
+        "critical": 20,
+        "weight": 0.25
+      },
+      "dependencyTreeDepth": {
+        "max": 5,
+        "warning": 3,
+        "critical": 8,
+        "weight": 0.2
+      },
+      "runtimeOverheadMs": {
+        "max": 100,
+        "warning": 50,
+        "critical": 200,
+        "weight": 0.25
+      },
+      "memoryOverheadMB": {
+        "max": 50,
+        "warning": 20,
+        "critical": 100,
+        "weight": 0.15
+      },
+      "startupImpactMs": {
+        "max": 200,
+        "warning": 100,
+        "critical": 500,
+        "weight": 0.15
+      }
+    },
+    "benchmarks": {
+      "enabled": true,
+      "timeoutSeconds": 300,
+      "iterations": 10,
+      "baselineMeasurements": true
+    },
+    "thresholds": {
+      "minimumScore": 80,
+      "preferredScore": 90,
+      "criticalScore": 60
+    }
+  },
+
+  "integration": {
+    "description": "Integration testing and compatibility criteria",
+    "buildCompatibility": {
+      "dotnetFrameworks": ["net8.0", "net9.0", "netstandard2.1"],
+      "operatingSystems": ["Windows", "Linux", "macOS"],
+      "architectures": ["x64", "arm64"],
+      "timeoutMinutes": 120
+    },
+    "testing": {
+      "unitTestRequired": true,
+      "integrationTestRequired": true,
+      "crossPlatformTesting": true,
+      "performanceTestRequired": false,
+      "securityTestRequired": true
+    },
+    "qualityGates": {
+      "minimumTestPassRate": 0.95,
+      "minimumTestCoverage": 0.7,
+      "maximumBreakingChanges": 0,
+      "maximumRegressionRate": 0.05
+    },
+    "compatibility": {
+      "rollbackSupport": true,
+      "migrationScripts": false,
+      "backwardCompatibility": true,
+      "futureCompatibility": true
+    }
+  },
+
+  "architecture": {
+    "description": "Architecture review criteria and scoring",
+    "scoring": {
+      "principleAlignment": {
+        "weight": 0.25,
+        "minScore": 3,
+        "maxScore": 5
+      },
+      "apiConsistency": {
+        "weight": 0.2,
+        "minScore": 3,
+        "maxScore": 5
+      },
+      "couplingLevel": {
+        "weight": 0.2,
+        "minScore": 1,
+        "maxScore": 3,
+        "reverseScale": true
+      },
+      "extensibility": {
+        "weight": 0.15,
+        "minScore": 3,
+        "maxScore": 5
+      },
+      "securityAlignment": {
+        "weight": 0.1,
+        "minScore": 3,
+        "maxScore": 5
+      },
+      "performanceCompatibility": {
+        "weight": 0.1,
+        "minScore": 3,
+        "maxScore": 5
+      }
+    },
+    "thresholds": {
+      "minimumPassingScore": 3.5,
+      "preferredScore": 4.0,
+      "excellentScore": 4.5
+    },
+    "reviewCriteria": {
+      "architecturalPrinciples": [
+        "modularity",
+        "separability",
+        "testability",
+        "maintainability",
+        "performance"
+      ],
+      "antiPatterns": [
+        "circularDependencies",
+        "godObjects",
+        "tightCoupling",
+        "violationOfDemeter",
+        "overEngineering"
+      ]
+    }
+  },
+
+  "approval": {
+    "description": "Final approval criteria and workflow",
+    "criteria": {
+      "securityScore": {
+        "min": 95,
+        "weight": 0.3
+      },
+      "licenseCompliance": {
+        "required": true,
+        "weight": 0.2
+      },
+      "maintenanceScore": {
+        "min": 70,
+        "weight": 0.2
+      },
+      "performanceScore": {
+        "min": 80,
+        "weight": 0.15
+      },
+      "integrationScore": {
+        "min": 85,
+        "weight": 0.1
+      },
+      "architectureScore": {
+        "min": 3.5,
+        "weight": 0.05
+      }
+    },
+    "workflow": {
+      "automaticApproval": {
+        "enabled": false,
+        "minScore": 95,
+        "maxScore": 100,
+        "riskLevel": "low"
+      },
+      "standardApproval": {
+        "minScore": 80,
+        "maxScore": 94,
+        "requiredReviews": ["technical", "security"],
+        "approvalTimeoutDays": 5
+      },
+      "extendedApproval": {
+        "minScore": 60,
+        "maxScore": 79,
+        "requiredReviews": ["technical", "security", "architecture", "legal"],
+        "approvalTimeoutDays": 10,
+        "requiresSteeringCommittee": true
+      },
+      "rejection": {
+        "maxScore": 59,
+        "requiresExplanation": true,
+        "requiresAlternativeSearch": true
+      }
+    },
+    "vetoPower": {
+      "securityTeam": {
+        "reasons": ["criticalVulnerabilities", "securityCompliance"],
+        "overridable": false
+      },
+      "architectureTeam": {
+        "reasons": ["architecturalViolation", "couplingIssues"],
+        "overridable": false
+      },
+      "legalTeam": {
+        "reasons": ["licenseViolation", "commercialTerms"],
+        "overridable": false
+      }
+    }
+  },
+
+  "monitoring": {
+    "description": "Ongoing monitoring and maintenance",
+    "healthChecks": {
+      "frequency": "weekly",
+      "securityScanning": "daily",
+      "performanceMonitoring": "weekly",
+      "licenseCompliance": "monthly"
+    },
+    "alerts": {
+      "criticalVulnerabilities": {
+        "immediate": true,
+        "escalationMinutes": 15
+      },
+      "licenseChanges": {
+        "immediate": true,
+        "escalationMinutes": 60
+      },
+      "maintenanceDrop": {
+        "immediate": false,
+        "escalationDays": 7
+      },
+      "performanceDegradation": {
+        "immediate": false,
+        "escalationDays": 3
+      }
+    },
+    "thresholds": {
+      "healthScore": {
+        "critical": 60,
+        "warning": 75,
+        "good": 85
+      },
+      "maintenanceScore": {
+        "critical": 50,
+        "warning": 70,
+        "good": 80
+      },
+      "securityScore": {
+        "critical": 80,
+        "warning": 90,
+        "good": 95
+      }
+    }
+  },
+
+  "notifications": {
+    "description": "Notification settings for vetting process",
+    "channels": {
+      "email": {
+        "enabled": true,
+        "smtpServer": "",
+        "port": 587,
+        "useSSL": true,
+        "recipients": {
+          "security": ["security@tixl.dev"],
+          "technical": ["tech-lead@tixl.dev"],
+          "architecture": ["architecture@tixl.dev"],
+          "steering": ["steering-committee@tixl.dev"]
+        }
+      },
+      "slack": {
+        "enabled": false,
+        "webhookUrl": "",
+        "channels": {
+          "general": "#dev-notifications",
+          "security": "#security-alerts",
+          "architecture": "#architecture-reviews"
+        }
+      },
+      "teams": {
+        "enabled": false,
+        "webhookUrl": "",
+        "teams": {
+          "development": "Development Team",
+          "security": "Security Team",
+          "architecture": "Architecture Team"
+        }
+      }
+    },
+    "templates": {
+      "approval": {
+        "subject": "Dependency Approval Request: {PackageName}",
+        "priority": "high"
+      },
+      "rejection": {
+        "subject": "Dependency Rejected: {PackageName}",
+        "priority": "medium"
+      },
+      "monitoring": {
+        "subject": "Dependency Health Alert: {PackageName}",
+        "priority": "medium"
+      },
+      "vulnerability": {
+        "subject": "CRITICAL: Security Vulnerability in {PackageName}",
+        "priority": "critical"
+      }
+    }
+  },
+
+  "reporting": {
+    "description": "Reporting and analytics settings",
+    "formats": {
+      "json": {
+        "enabled": true,
+        "prettyPrint": true,
+        "includeMetadata": true
+      },
+      "markdown": {
+        "enabled": true,
+        "includeCharts": true,
+        "includeRecommendations": true
+      },
+      "html": {
+        "enabled": true,
+        "interactive": true,
+        "includeVisualizations": true
+      },
+      "csv": {
+        "enabled": true,
+        "includeHeaders": true
+      }
+    },
+    "retention": {
+      "reportsDays": 365,
+      "logsDays": 90,
+      "cacheDays": 30
+    },
+    "metrics": {
+      "trackProcessingTime": true,
+      "trackApprovalRates": true,
+      "trackRejectionReasons": true,
+      "trackSecurityIncidents": true
+    }
+  },
+
+  "tools": {
+    "description": "External tool integration and configuration",
+    "securityScanners": [
+      {
+        "name": "OWASP Dependency Check",
+        "enabled": true,
+        "command": "dependency-check.sh",
+        "args": ["--project", "{ProjectName}", "--scan", "{ScanPath}", "--format", "JSON"]
+      },
+      {
+        "name": "dotnet-outdated",
+        "enabled": true,
+        "command": "dotnet-outdated",
+        "args": ["--config-file", "{ConfigPath}", "--output-format", "Json"]
+      }
+    ],
+    "licenseScanners": [
+      {
+        "name": "REUSE Tool",
+        "enabled": true,
+        "command": "reuse",
+        "args": ["spdx", "--output", "{OutputPath}/licenses.spdx"]
+      }
+    ],
+    "performanceTools": [
+      {
+        "name": "BenchmarkDotNet",
+        "enabled": true,
+        "framework": "net8.0"
+      }
+    ]
+  }
+}

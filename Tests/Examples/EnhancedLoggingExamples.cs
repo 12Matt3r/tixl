@@ -1,5 +1,5 @@
-// Example tests demonstrating enhanced logging integration for TiXL
-// This file shows practical usage of the logging framework in real test scenarios
+// Enhanced TiXL Structured Logging Examples
+// Comprehensive examples demonstrating the TiXL structured logging framework with Serilog integration
 
 using Xunit;
 using FluentAssertions;
@@ -10,21 +10,318 @@ using SharpDX.Direct3D12;
 using SharpDX;
 using System.Diagnostics;
 using System.Text.Json;
+using TiXL.Logging;
+using TiXL.Logging.Modules;
+using TiXL.Logging.Correlation;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Serilog;
+using Serilog.Events;
 
-namespace TiXL.Tests.Graphics
+namespace TiXL.Tests.Examples
 {
     /// <summary>
-    /// Enhanced graphics tests with comprehensive logging
+    /// Comprehensive examples demonstrating TiXL structured logging framework
+    /// Shows practical usage patterns for all logging features including:
+    /// - Serilog configuration and setup
+    /// - Correlation ID propagation across modules
+    /// - Module-specific logging (Core, Graphics, Editor, Operators, Performance)
+    /// - Context enrichment and structured logging
+    /// - Performance monitoring integration
+    /// - Error tracking and debugging capabilities
     /// </summary>
-    [Collection("Graphics Tests")]
-    [Category(TestCategories.Graphics)]
-    [Category(TestCategories.Rendering)]
-    [Category(TestCategories.P0)]
-    public class EnhancedGraphicsTests : CoreTestFixture
+    public class TiXLStructuredLoggingExamples : CoreTestFixture
     {
+        private readonly ICoreLogger _coreLogger;
+        private readonly IGraphicsLogger _graphicsLogger;
+        private readonly ICorrelationIdProvider _correlationIdProvider;
+        private readonly IOperationTracker _operationTracker;
+
+        public TiXLStructuredLoggingExamples()
+        {
+            // Get logger instances from service provider
+            _coreLogger = ServiceProvider.GetRequiredService<ICoreLogger>();
+            _graphicsLogger = ServiceProvider.GetRequiredService<IGraphicsLogger>();
+            _correlationIdProvider = ServiceProvider.GetRequiredService<ICorrelationIdProvider>();
+            _operationTracker = ServiceProvider.GetRequiredService<IOperationTracker>();
+        }
+
         [Fact]
-        [Category(TestCategories.Fast)]
-        public void EnhancedMockDevice_CreateDevice_WithDetailedLogging()
+        public void StructuredLogging_WithCorrelationId_DemonstratesBasicUsage()
+        {
+            var correlationId = _correlationIdProvider.GetCorrelationId();
+            
+            // Log with structured properties
+            _coreLogger.LogSystemInitialization("ExampleComponent", TimeSpan.FromMilliseconds(125.5));
+            
+            // Log error with context
+            try
+            {
+                throw new InvalidOperationException("Example error for logging demonstration");
+            }
+            catch (Exception ex)
+            {
+                _coreLogger.LogException(ex, "ExampleComponent initialization", LogLevel.Error);
+            }
+            
+            // Performance metrics
+            _coreLogger.LogPerformanceMetric("ExampleOperation", 42.3, "ms");
+            
+            // Memory metrics
+            _coreLogger.LogMemoryMetrics(
+                workingSet: 1024 * 1024 * 100, // 100MB
+                privateMemory: 1024 * 1024 * 80, // 80MB
+                gen0Collections: 5,
+                gen1Collections: 2,
+                gen2Collections: 1);
+            
+            ExecutionLogger.LogInformation("Structured logging example completed with correlation ID: {CorrelationId}", correlationId);
+        }
+
+        [Fact]
+        public void OperationTracking_DemonstratesCorrelationAcrossModules()
+        {
+            // Start a tracked operation that spans multiple modules
+            var mainOperationId = _operationTracker.StartOperation("MultiModuleOperation", null, new Dictionary<string, object?>
+            {
+                ["TestCategory"] = "StructuredLogging",
+                ["ExampleType"] = "OperationTracking"
+            });
+
+            try
+            {
+                // Simulate Core module operations
+                var coreOperationId = _operationTracker.StartOperation("CoreInitialization", mainOperationId);
+                
+                _coreLogger.LogSystemInitialization("GraphicsSubsystem", TimeSpan.FromMilliseconds(50));
+                
+                _operationTracker.EndOperation(coreOperationId, true);
+
+                // Simulate Graphics module operations
+                var graphicsOperationId = _operationTracker.StartOperation("DeviceCreation", mainOperationId);
+                
+                _graphicsLogger.LogDeviceInitialization("MockD3D12Device", true, TimeSpan.FromMilliseconds(75));
+                
+                _operationTracker.EndOperation(graphicsOperationId, true);
+
+                // Simulate performance logging
+                _coreLogger.LogPerformanceMetric("TotalInitializationTime", 125, "ms");
+
+                _operationTracker.EndOperation(mainOperationId, true);
+            }
+            catch (Exception ex)
+            {
+                _operationTracker.EndOperation(mainOperationId, false, ex.Message);
+                throw;
+            }
+            
+            ExecutionLogger.LogInformation("Operation tracking example completed");
+        }
+
+        [Fact]
+        public void ModuleSpecificLogging_DemonstratesStructuredLogging()
+        {
+            // Core module logging
+            _coreLogger.LogConfigurationChange("GraphicsAPI", "OpenGL", "Direct3D12");
+            _coreLogger.LogSecurityEvent("UnauthorizedAccess", "Attempted access to protected resource", LogLevel.Warning);
+            _coreLogger.LogDependencyInitialization("GraphicsSubsystem", TimeSpan.FromMilliseconds(25), true);
+            _coreLogger.LogHealthCheck("MemoryManager", true);
+
+            // Graphics module logging
+            _graphicsLogger.LogDeviceInitialization("MockD3D12Device", true, TimeSpan.FromMilliseconds(150));
+            _graphicsLogger.LogResourceCreation("Texture2D", 1024 * 1024 * 4, true); // 4MB texture
+            _graphicsLogger.LogShaderCompilation("VertexShader", true, TimeSpan.FromMilliseconds(85));
+            _graphicsLogger.LogRenderingPass("MainPass", 1500, 42, TimeSpan.FromMilliseconds(16.7));
+            _graphicsLogger.LogGpuMemoryUsage(1024 * 1024 * 512, 1024 * 1024 * 2048, 0.25); // 25% usage
+            _graphicsLogger.LogFrameRate(60.0, TimeSpan.FromMilliseconds(16.67));
+
+            // Performance module logging
+            var perfLogger = ServiceProvider.GetRequiredService<IPerformanceLogger>();
+            perfLogger.LogBenchmarkStart("DeviceInitialization");
+            perfLogger.LogBenchmarkEnd("DeviceInitialization", TimeSpan.FromMilliseconds(150), new Dictionary<string, object?>
+            {
+                ["DeviceType"] = "MockD3D12",
+                ["SuccessRate"] = 1.0
+            });
+            
+            ExecutionLogger.LogInformation("Module-specific logging examples completed");
+        }
+        [Fact]
+        public void GraphicsModuleLogging_DemonstratesAdvancedScenarios()
+        {
+            var correlationId = _correlationIdProvider.GetCorrelationId();
+
+            // Start a graphics operation
+            var graphicsOperationId = _operationTracker.StartOperation("ComplexGraphicsOperation", null, new Dictionary<string, object?>
+            {
+                ["CorrelationId"] = correlationId,
+                ["Complexity"] = "High"
+            });
+
+            try
+            {
+                // Initialize graphics device with structured logging
+                var deviceStartTime = Stopwatch.GetTimestamp();
+                
+                _graphicsLogger.LogDeviceInitialization("MockD3D12Device", true, TimeSpan.FromMilliseconds(125));
+                
+                // Create multiple resources with detailed tracking
+                for (int i = 0; i < 5; i++)
+                {
+                    var resourceStartTime = Stopwatch.GetTimestamp();
+                    
+                    var resourceType = i % 2 == 0 ? "Texture2D" : "Buffer";
+                    var size = 1024 * 1024 * (i + 1); // 1MB to 5MB
+                    
+                    _graphicsLogger.LogResourceCreation(resourceType, size, true);
+                    _graphicsLogger.LogGpuMemoryUsage(
+                        usedMemory: 1024 * 1024 * (100 + i * 10),
+                        totalMemory: 1024 * 1024 * 2048,
+                        usagePercent: 0.05 + (i * 0.02));
+                    
+                    var resourceDuration = (Stopwatch.GetTimestamp() - resourceStartTime) * 1000.0 / Stopwatch.Frequency;
+                    _coreLogger.LogPerformanceMetric($"ResourceCreation_{i}", resourceDuration, "ms");
+                }
+
+                // Shader compilation with error handling
+                try
+                {
+                    _graphicsLogger.LogShaderCompilation("PixelShader", true, TimeSpan.FromMilliseconds(75));
+                }
+                catch (Exception ex)
+                {
+                    _graphicsLogger.LogShaderCompilation("PixelShader", false, null, ex.Message);
+                    _graphicsLogger.LogGraphicsError(ex, "PixelShader compilation", LogLevel.Error);
+                }
+
+                // Rendering pipeline simulation
+                var renderStartTime = Stopwatch.GetTimestamp();
+                
+                _graphicsLogger.LogRenderingPass("ShadowPass", 800, 25, TimeSpan.FromMilliseconds(8.5));
+                _graphicsLogger.LogRenderingPass("LightingPass", 1200, 35, TimeSpan.FromMilliseconds(12.3));
+                _graphicsLogger.LogRenderingPass("PostProcessingPass", 0, 5, TimeSpan.FromMilliseconds(5.2));
+                
+                var totalRenderTime = (Stopwatch.GetTimestamp() - renderStartTime) * 1000.0 / Stopwatch.Frequency;
+                _coreLogger.LogPerformanceMetric("TotalRenderTime", totalRenderTime, "ms");
+
+                // Frame rate monitoring
+                _graphicsLogger.LogFrameRate(60.0 + (new Random().NextDouble() - 0.5) * 10, TimeSpan.FromMilliseconds(16.67));
+
+                _operationTracker.EndOperation(graphicsOperationId, true);
+            }
+            catch (Exception ex)
+            {
+                _operationTracker.EndOperation(graphicsOperationId, false, ex.Message);
+                _graphicsLogger.LogGraphicsError(ex, "ComplexGraphicsOperation", LogLevel.Error);
+                throw;
+            }
+
+            ExecutionLogger.LogInformation("Advanced graphics logging example completed with correlation ID: {CorrelationId}", correlationId);
+        }
+
+        [Fact]
+        public void CorrelationPropagation_DemonstratesCrossModuleTracing()
+        {
+            // Create a main operation that will span multiple modules
+            var correlationId = _correlationIdProvider.GetCorrelationId();
+            var mainOperationId = _operationTracker.StartOperation("CrossModuleOperation", null, new Dictionary<string, object?>
+            {
+                ["InitialCorrelationId"] = correlationId,
+                ["TestType"] = "CorrelationPropagation"
+            });
+
+            // Track nested operations
+            var nestedOperations = new List<string>();
+
+            try
+            {
+                // Core module operation
+                var coreOpId = _operationTracker.StartOperation("CoreValidation", mainOperationId, new Dictionary<string, object?>
+                {
+                    ["Module"] = "Core",
+                    ["ValidationType"] = "SystemHealth"
+                });
+                
+                _coreLogger.LogHealthCheck("CoreSubsystem", true, "All systems operational");
+                _coreLogger.LogDependencyInitialization("GraphicsSubsystem", TimeSpan.FromMilliseconds(25), true);
+                
+                _operationTracker.EndOperation(coreOpId, true);
+                nestedOperations.Add(coreOpId);
+
+                // Graphics module operation
+                var graphicsOpId = _operationTracker.StartOperation("GraphicsValidation", mainOperationId, new Dictionary<string, object?>
+                {
+                    ["Module"] = "Graphics",
+                    ["ValidationType"] = "DeviceHealth"
+                });
+                
+                _graphicsLogger.LogDeviceInitialization("MockD3D12Device", true, TimeSpan.FromMilliseconds(150));
+                _graphicsLogger.LogGpuMemoryUsage(1024 * 1024 * 512, 1024 * 1024 * 2048, 0.25);
+                
+                _operationTracker.EndOperation(graphicsOpId, true);
+                nestedOperations.Add(graphicsOpId);
+
+                // Performance monitoring
+                var perfLogger = ServiceProvider.GetRequiredService<IPerformanceLogger>();
+                var perfOpId = _operationTracker.StartOperation("PerformanceAnalysis", mainOperationId);
+                
+                perfLogger.LogMemoryPressure(1024 * 1024 * 500, 1024 * 1024 * 1024, LogLevel.Information);
+                perfLogger.LogCpuUsage(45.5, 1, LogLevel.Information);
+                perfLogger.LogGcMetrics(10, 3, 1, TimeSpan.FromMilliseconds(15.5));
+                
+                _operationTracker.EndOperation(perfOpId, true);
+                nestedOperations.Add(perfOpId);
+
+                // Verify all operations have the same correlation ID
+                var allOperations = _operationTracker.GetOperations(correlationId);
+                allOperations.Should().HaveCountGreaterOrEqualTo(4); // Main + 3 nested operations
+                
+                allOperations.Should().AllSatisfy(op => 
+                {
+                    op.CorrelationId.Should().Be(correlationId, 
+                        $"Operation {op.Name} should have correlation ID {correlationId}");
+                });
+
+                _operationTracker.EndOperation(mainOperationId, true);
+            }
+            catch (Exception ex)
+            {
+                _operationTracker.EndOperation(mainOperationId, false, ex.Message);
+                
+                // Log failure with all related operations
+                foreach (var opId in nestedOperations)
+                {
+                    _operationTracker.EndOperation(opId, false, "Parent operation failed");
+                }
+                
+                throw;
+            }
+
+            ExecutionLogger.LogInformation("Correlation propagation example completed. Tracked {OperationCount} operations with correlation ID: {CorrelationId}",
+                nestedOperations.Count + 1, correlationId);
+        }
+
+        /// <summary>
+        /// Enhanced graphics tests with comprehensive structured logging
+        /// </summary>
+        [Collection("Graphics Tests")]
+        [Category(TestCategories.Graphics)]
+        [Category(TestCategories.Rendering)]
+        [Category(TestCategories.P0)]
+        public class EnhancedGraphicsTests : CoreTestFixture
+        {
+            private readonly IGraphicsLogger _graphicsLogger;
+            private readonly ICoreLogger _coreLogger;
+
+            public EnhancedGraphicsTests()
+            {
+                _graphicsLogger = ServiceProvider.GetRequiredService<IGraphicsLogger>();
+                _coreLogger = ServiceProvider.GetRequiredService<ICoreLogger>();
+            }
+
+            [Fact]
+            [Category(TestCategories.Fast)]
+            public void EnhancedMockDevice_CreateDevice_WithDetailedLogging()
         {
             // Log test parameters
             var testConfig = new

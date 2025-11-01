@@ -25,7 +25,13 @@
     .\check-warnings.ps1 -SolutionPath "..\TiXL.sln"
 
 .EXAMPLE
-    .\check-warnings.ps1 -ProjectPath "Core\TiXL.Core.csproj" -FixMode -OutputPath "warning-report.html"
+    .\check-warnings.ps1 -ProjectPath "Tests\TiXL.Tests.csproj" -FixMode -OutputPath "warning-report.html"
+
+.DESCRIPTION
+    This script is part of the TiXL Zero-Warning Policy (TIXL-003) implementation.
+    It specifically targets CS8600-CS8669, CS0168, CS0219, CS0618, CS1591, CS1998, CS4014.
+    
+    For enhanced detection and auto-fixing, use: .\scripts\detect-and-fix-warnings.ps1
 #>
 
 param(
@@ -318,9 +324,16 @@ function Generate-ReportFile {
 ## Getting Help
 
 If you need assistance with specific warnings, refer to:
+- [TiXL Zero-Warning Policy Implementation](zero_warning_policy_implementation.md)
 - [TiXL Warning Resolution Guide](build_warnings_resolution.md)
-- Project documentation
-- Team coding standards
+- [Developer Quick Reference](zero_warning_quick_reference.md)
+- Project documentation and team coding standards
+
+## Zero-Warning Policy (TIXL-003)
+
+This script enforces the TiXL zero-warning policy by treating all target warnings as errors.
+For comprehensive analysis and automatic fixes, use the enhanced script:
+`.\scripts\detect-and-fix-warnings.ps1 -AutoFix`
 "@
     
     $report | Out-File -FilePath $OutputPath -Encoding UTF8

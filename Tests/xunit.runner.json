@@ -1,1 +1,22 @@
-{"parallelizeTestCollections": true, "parallelizeAssemblies": true, "maxParallelThreads": 0, "diagnosticMessages": false, "internalDiagnosticMessages": false, "longRunningTestSeconds": 5, "notEqualBehavior": 0}
+# TiXL Test Configuration and CI Integration
+# This file provides comprehensive testing setup for TiXL baseline testing suite
+
+# xUnit Configuration
+# - Parallel execution enabled for faster test runs
+# - Diagnostic messages for troubleshooting
+# - Performance thresholds for long-running tests
+{
+  "$schema": "https://xunit.net/schema/current/xunit.runner.schema.json",
+  "parallelizeTestCollections": true,
+  "parallelizeAssemblies": true,
+  "maxParallelThreads": 0,
+  "diagnosticMessages": false,
+  "internalDiagnosticMessages": false,
+  "longRunningTestSeconds": 5,
+  "notEqualBehavior": 0,
+  "culture": "en-US",
+  "methodDisplay": "classAndMethod",
+  "methodDisplayOptions": "all",
+  "preEnumerateTheories": true,
+  "theoryDisplayName": "{method}"
+}

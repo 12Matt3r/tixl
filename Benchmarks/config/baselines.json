@@ -1,0 +1,132 @@
+{
+  "Baselines": {
+    "Default": {
+      "Description": "Default performance baseline for TiXL",
+      "Version": "1.0",
+      "CreatedAt": "2025-01-01T00:00:00Z",
+      "Environment": {
+        "OSVersion": "Windows 11",
+        "DotNetVersion": "9.0",
+        "Processor": "Intel i7-12700K",
+        "MemoryGB": 32,
+        "GraphicsCard": "NVIDIA RTX 3080"
+      },
+      "Thresholds": {
+        "FrameTime": {
+          "TargetMs": 16.67,
+          "MaxMs": 20.0,
+          "MinFps": 59.0
+        },
+        "MemoryUsage": {
+          "MaxAllocationPerFrame": 1048576,
+          "MaxGCCollectionsPerSecond": 10,
+          "MaxMemoryLeakBytes": 0
+        },
+        "ProjectLoad": {
+          "MaxLoadTimeMs": 5000,
+          "TargetLoadTimeMs": 2000
+        },
+        "OperatorExecution": {
+          "MaxEvaluationTimeMs": 2.0,
+          "TargetEvaluationTimeMs": 0.5
+        },
+        "GraphicsPerformance": {
+          "MaxDrawCallTimeMs": 0.5,
+          "MaxShaderCompileTimeMs": 100
+        },
+        "AudioLatency": {
+          "MaxLatencyMs": 10.0,
+          "TargetLatencyMs": 5.0
+        }
+      },
+      "Metrics": []
+    },
+    "Development": {
+      "Description": "Development environment baseline (may have relaxed thresholds)",
+      "Version": "1.0",
+      "CreatedAt": "2025-01-01T00:00:00Z",
+      "Environment": {
+        "OSVersion": "Windows 11",
+        "DotNetVersion": "9.0",
+        "Processor": "Intel i5-12400",
+        "MemoryGB": 16,
+        "GraphicsCard": "NVIDIA GTX 1660"
+      },
+      "Thresholds": {
+        "FrameTime": {
+          "TargetMs": 20.0,
+          "MaxMs": 25.0,
+          "MinFps": 50.0
+        },
+        "MemoryUsage": {
+          "MaxAllocationPerFrame": 2097152,
+          "MaxGCCollectionsPerSecond": 15,
+          "MaxMemoryLeakBytes": 1048576
+        },
+        "ProjectLoad": {
+          "MaxLoadTimeMs": 10000,
+          "TargetLoadTimeMs": 5000
+        },
+        "OperatorExecution": {
+          "MaxEvaluationTimeMs": 5.0,
+          "TargetEvaluationTimeMs": 1.0
+        },
+        "GraphicsPerformance": {
+          "MaxDrawCallTimeMs": 1.0,
+          "MaxShaderCompileTimeMs": 200
+        },
+        "AudioLatency": {
+          "MaxLatencyMs": 15.0,
+          "TargetLatencyMs": 8.0
+        }
+      },
+      "Metrics": []
+    },
+    "Release": {
+      "Description": "Production release baseline with strict performance requirements",
+      "Version": "1.0", 
+      "CreatedAt": "2025-01-01T00:00:00Z",
+      "Environment": {
+        "OSVersion": "Windows 11",
+        "DotNetVersion": "9.0",
+        "Processor": "Intel i9-12900K",
+        "MemoryGB": 64,
+        "GraphicsCard": "NVIDIA RTX 4080"
+      },
+      "Thresholds": {
+        "FrameTime": {
+          "TargetMs": 14.0,
+          "MaxMs": 16.67,
+          "MinFps": 60.0
+        },
+        "MemoryUsage": {
+          "MaxAllocationPerFrame": 524288,
+          "MaxGCCollectionsPerSecond": 5,
+          "MaxMemoryLeakBytes": 0
+        },
+        "ProjectLoad": {
+          "MaxLoadTimeMs": 3000,
+          "TargetLoadTimeMs": 1500
+        },
+        "OperatorExecution": {
+          "MaxEvaluationTimeMs": 1.0,
+          "TargetEvaluationTimeMs": 0.25
+        },
+        "GraphicsPerformance": {
+          "MaxDrawCallTimeMs": 0.25,
+          "MaxShaderCompileTimeMs": 50
+        },
+        "AudioLatency": {
+          "MaxLatencyMs": 8.0,
+          "TargetLatencyMs": 3.0
+        }
+      },
+      "Metrics": []
+    }
+  },
+  "Metadata": {
+    "LastUpdated": "2025-01-01T00:00:00Z",
+    "Version": "1.0",
+    "Description": "Performance baseline configuration for TiXL benchmarking suite"
+  }
+}

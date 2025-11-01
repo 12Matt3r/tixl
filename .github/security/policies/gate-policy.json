@@ -1,0 +1,316 @@
+{
+  "policy_name": "TiXL Security Quality Gate Policy",
+  "version": "1.0",
+  "description": "Comprehensive security quality gates for TiXL project",
+  "effective_date": "2025-11-02",
+  "severity_thresholds": {
+    "critical": {
+      "max_allowed": 0,
+      "description": "No critical vulnerabilities allowed",
+      "action": "fail"
+    },
+    "high": {
+      "max_allowed": 5,
+      "description": "Maximum 5 high-severity vulnerabilities allowed",
+      "action": "fail"
+    },
+    "medium": {
+      "max_allowed": 25,
+      "description": "Maximum 25 medium-severity vulnerabilities allowed",
+      "action": "warn"
+    },
+    "low": {
+      "max_allowed": 100,
+      "description": "Maximum 100 low-severity vulnerabilities allowed",
+      "action": "info"
+    }
+  },
+  "tool_requirements": {
+    "CodeQL": {
+      "required": true,
+      "min_score": 0,
+      "description": "CodeQL SAST analysis must pass",
+      "failure_action": "fail"
+    },
+    "Grype": {
+      "required": true,
+      "min_score": 0,
+      "description": "Grype dependency scanning must pass",
+      "failure_action": "fail"
+    },
+    "Semgrep": {
+      "required": false,
+      "min_score": 0,
+      "description": "Semgrep SAST analysis (optional but recommended)",
+      "failure_action": "warn"
+    },
+    "TruffleHog": {
+      "required": true,
+      "min_score": 0,
+      "description": "TruffleHog secret scanning must pass",
+      "failure_action": "fail"
+    },
+    "dotnet-retire": {
+      "required": true,
+      "min_score": 0,
+      "description": "dotnet-retire known vulnerability scanning must pass",
+      "failure_action": "fail"
+    },
+    "SonarQube": {
+      "required": false,
+      "min_score": 0,
+      "description": "SonarQube security analysis (optional)",
+      "failure_action": "warn"
+    },
+    "Trivy": {
+      "required": false,
+      "min_score": 0,
+      "description": "Trivy container security scanning (if applicable)",
+      "failure_action": "warn"
+    },
+    "Checkov": {
+      "required": false,
+      "min_score": 0,
+      "description": "Checkov IaC security scanning (if applicable)",
+      "failure_action": "warn"
+    }
+  },
+  "policy_rules": [
+    {
+      "name": "No Critical Vulnerabilities",
+      "description": "Critical security vulnerabilities are not allowed",
+      "condition": "critical_count == 0",
+      "severity": "critical",
+      "action": "fail",
+      "rationale": "Critical vulnerabilities pose immediate security risks"
+    },
+    {
+      "name": "Limited High-Severity Issues",
+      "description": "Maximum 5 high-severity security issues allowed",
+      "condition": "high_count <= 5",
+      "severity": "high",
+      "action": "fail",
+      "rationale": "High-severity issues require immediate attention"
+    },
+    {
+      "name": "No Secrets in Code",
+      "description": "No secrets, API keys, or credentials should be committed",
+      "condition": "secret_count == 0",
+      "severity": "high",
+      "action": "fail",
+      "rationale": "Secrets in code pose immediate security risks"
+    },
+    {
+      "name": "All Required Tools Must Pass",
+      "description": "All required security scanning tools must complete successfully",
+      "condition": "required_tools_passed",
+      "severity": "high",
+      "action": "fail",
+      "rationale": "Required tools ensure comprehensive security coverage"
+    },
+    {
+      "name": "Dependency Vulnerabilities",
+      "description": "Known vulnerable dependencies should be addressed",
+      "condition": "sca_critical_count == 0 AND sca_high_count <= 5",
+      "severity": "medium",
+      "action": "warn",
+      "rationale": "Dependency vulnerabilities can be exploited"
+    },
+    {
+      "name": "Code Quality Security Issues",
+      "description": "SAST tools should not report security code patterns",
+      "condition": "sast_critical_count == 0 AND sast_high_count <= 3",
+      "severity": "medium",
+      "action": "warn",
+      "rationale": "Security code patterns indicate potential vulnerabilities"
+    },
+    {
+      "name": "Recent CVE Coverage",
+      "description": "Dependencies should not have very recent critical CVEs",
+      "condition": "recent_critical_cve_count == 0",
+      "severity": "high",
+      "action": "fail",
+      "rationale": "Recent critical CVEs pose active security threats"
+    },
+    {
+      "name": "License Compliance",
+      "description": "Dependencies should have compatible licenses",
+      "condition": "incompatible_licenses_count == 0",
+      "severity": "medium",
+      "action": "warn",
+      "rationale": "License compliance is required for legal use"
+    }
+  ],
+  "allow_list": [
+    "CWE-999",           # Test code exclusions
+    "test-only",
+    "example-code",
+    "documentation",
+    "info-only",
+    "CWE-516",           # DEPRECATED - Storm & Drifting
+    "CWE-561",           # Dead Code
+    "CWE-563",           # Unused Variable
+    "CWE-570",           # Expression is Always False
+    "CWE-571",           # Expression is Always True
+    "CWE-672",           # Deprecated or Obsolete Function
+    "CWE-674",           # Uncontrolled Recursion
+    "CWE-676",           # Use of Potentially Dangerous Function
+    "CWE-689",           # Permission Race Condition
+    "CWE-754",           # Improper Check for Exceptional Conditions
+    "CWE-758"            # Use of NULL Pointer Dereference
+  ],
+  "false_positive_categories": [
+    "unit-test",
+    "integration-test",
+    "test-data",
+    "documentation",
+    "example",
+    "demo",
+    "sample"
+  ],
+  "severity_mapping": {
+    "codeql": {
+      "error": "high",
+      "warning": "medium",
+      "note": "low"
+    },
+    "semgrep": {
+      "ERROR": "high",
+      "WARNING": "medium",
+      "INFO": "low"
+    },
+    "grype": {
+      "CRITICAL": "critical",
+      "HIGH": "high",
+      "MEDIUM": "medium",
+      "LOW": "low"
+    },
+    "trufflehog": {
+      "VERIFIED": "high",
+      "UNVERIFIED": "medium"
+    },
+    "sonarqube": {
+      "BLOCKER": "critical",
+      "CRITICAL": "high",
+      "MAJOR": "medium",
+      "MINOR": "low",
+      "INFO": "info"
+    }
+  },
+  "notification_rules": {
+    "critical_failure": {
+      "immediate": true,
+      "channels": ["email", "slack", "teams", "webhook"],
+      "recipients": ["security-team", "devops-team", "project-maintainers"]
+    },
+    "high_failure": {
+      "immediate": true,
+      "channels": ["email", "slack"],
+      "recipients": ["security-team", "devops-team"]
+    },
+    "medium_failure": {
+      "immediate": false,
+      "channels": ["slack", "webhook"],
+      "recipients": ["devops-team"]
+    },
+    "weekly_summary": {
+      "immediate": false,
+      "channels": ["email"],
+      "recipients": ["security-team", "project-maintainers"],
+      "schedule": "weekly"
+    }
+  },
+  "remediation_guidance": {
+    "critical": {
+      "sla_hours": 24,
+      "priority": "immediate",
+      "steps": [
+        "Assess the impact and exploitability",
+        "Apply security patches or updates immediately",
+        "Test the fix thoroughly",
+        "Deploy to production with rollback plan"
+      ]
+    },
+    "high": {
+      "sla_hours": 72,
+      "priority": "high",
+      "steps": [
+        "Review the vulnerability details",
+        "Apply patches or configuration changes",
+        "Test the fix in lower environments",
+        "Schedule production deployment"
+      ]
+    },
+    "medium": {
+      "sla_hours": 168,
+      "priority": "medium",
+      "steps": [
+        "Review during next sprint planning",
+        "Apply fixes as part of regular updates",
+        "Document any accepted risks"
+      ]
+    },
+    "low": {
+      "sla_hours": 720,
+      "priority": "low",
+      "steps": [
+        "Review during code maintenance cycles",
+        "Consider addressing in future updates",
+        "Monitor for changes in severity"
+      ]
+    }
+  },
+  "compliance_frameworks": {
+    "OWASP_Top_10": {
+      "enabled": true,
+      "required_coverage": 90,
+      "exemptions_require_approval": true
+    },
+    "NIST_CSF": {
+      "enabled": true,
+      "required_coverage": 85,
+      "exemptions_require_approval": true
+    },
+    "SOC2": {
+      "enabled": false,
+      "required_coverage": 95,
+      "exemptions_require_approval": true
+    }
+  },
+  "scan_frequency": {
+    "pull_request": {
+      "enabled": true,
+      "tools": ["CodeQL", "Grype", "TruffleHog", "dotnet-retire"],
+      "timeout_minutes": 60
+    },
+    "push_to_main": {
+      "enabled": true,
+      "tools": "all",
+      "timeout_minutes": 120
+    },
+    "nightly": {
+      "enabled": true,
+      "schedule": "0 2 * * *",
+      "tools": "all",
+      "timeout_minutes": 180
+    },
+    "weekly_deep_scan": {
+      "enabled": true,
+      "schedule": "0 2 * * 1",
+      "tools": "all_including_experimental",
+      "timeout_minutes": 300
+    }
+  },
+  "metrics_and_reporting": {
+    "track_trends": true,
+    "historical_retention_days": 365,
+    "dashboard_url": "https://security-dashboard.tixl.example.com",
+    "report_formats": ["html", "pdf", "json", "csv"],
+    "automated_issue_creation": {
+      "critical": true,
+      "high": false,
+      "medium": false,
+      "low": false
+    }
+  }
+}

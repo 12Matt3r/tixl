@@ -1,0 +1,246 @@
+# TiXL Naming Conventions - Extended EditorConfig
+# This file extends the main .editorconfig with comprehensive naming conventions
+
+# C# files
+[*.cs]
+
+# ============================================================================
+# NAMING CONVENTIONS - CLASSES AND INTERFACES
+# ============================================================================
+
+# Class names should be PascalCase
+dotnet_naming_rule.class_should_be_pascal_case.severity = error
+dotnet_naming_rule.class_should_be_pascal_case.symbols = any_class
+dotnet_naming_rule.class_should_be_pascal_case.style = pascal_case
+
+# Interface names should be PascalCase with 'I' prefix
+dotnet_naming_rule.interface_should_be_ipascal_case.severity = error
+dotnet_naming_rule.interface_should_be_ipascal_case.symbols = any_interface
+dotnet_naming_rule.interface_should_be_ipascal_case.style = pascal_case_with_i_prefix
+
+# Struct names should be PascalCase
+dotnet_naming_rule.struct_should_be_pascal_case.severity = warning
+dotnet_naming_rule.struct_should_be_pascal_case.symbols = any_struct
+dotnet_naming_rule.struct_should_be_pascal_case.style = pascal_case
+
+# ============================================================================
+# NAMING CONVENTIONS - METHODS AND PROPERTIES
+# ============================================================================
+
+# Method names should be PascalCase
+dotnet_naming_rule.method_should_be_pascal_case.severity = warning
+dotnet_naming_rule.method_should_be_pascal_case.symbols = any_method
+dotnet_naming_rule.method_should_be_pascal_case.style = pascal_case
+
+# Property names should be PascalCase
+dotnet_naming_rule.property_should_be_pascal_case.severity = warning
+dotnet_naming_rule.property_should_be_pascal_case.symbols = any_property
+dotnet_naming_rule.property_should_be_pascal_case.style = pascal_case
+
+# Public property events should be PascalCase
+dotnet_naming_rule.public_event_should_be_pascal_case.severity = warning
+dotnet_naming_rule.public_event_should_be_pascal_case.symbols = public_events
+dotnet_naming_rule.public_event_should_be_pascal_case.style = pascal_case
+
+# ============================================================================
+# NAMING CONVENTIONS - FIELDS AND VARIABLES
+# ============================================================================
+
+# Private fields should be _camelCase with underscore prefix
+dotnet_naming_rule.private_field_should_be_camel_case.severity = error
+dotnet_naming_rule.private_field_should_be_camel_case.symbols = private_fields
+dotnet_naming_rule.private_field_should_be_camel_case.style = camel_case_with_underscore_prefix
+
+# Constants should be PascalCase
+dotnet_naming_rule.constant_should_be_pascal_case.severity = error
+dotnet_naming_rule.constant_should_be_pascal_case.symbols = constants
+dotnet_naming_rule.constant_should_be_pascal_case.style = pascal_case
+
+# Static readonly fields should be PascalCase
+dotnet_naming_rule.static_readonly_field_should_be_pascal_case.severity = warning
+dotnet_naming_rule.static_readonly_field_should_be_pascal_case.symbols = static_readonly_fields
+dotnet_naming_rule.static_readonly_field_should_be_pascal_case.style = pascal_case
+
+# Local variables should be camelCase
+dotnet_naming_rule.local_variable_should_be_camel_case.severity = none
+dotnet_naming_rule.local_variable_should_be_camel_case.symbols = local_variables
+dotnet_naming_rule.local_variable_should_be_camel_case.style = camel_case
+
+# Parameters should be camelCase
+dotnet_naming_rule.parameter_should_be_camel_case.severity = warning
+dotnet_naming_rule.parameter_should_be_camel_case.symbols = parameters
+dotnet_naming_rule.parameter_should_be_camel_case.style = camel_case
+
+# ============================================================================
+# NAMING CONVENTIONS - ENUMS
+# ============================================================================
+
+# Enum types should be PascalCase
+dotnet_naming_rule.enum_type_should_be_pascal_case.severity = warning
+dotnet_naming_rule.enum_type_should_be_pascal_case.symbols = enum_types
+dotnet_naming_rule.enum_type_should_be_pascal_case.style = pascal_case
+
+# Enum values should be PascalCase
+dotnet_naming_rule.enum_value_should_be_pascal_case.severity = warning
+dotnet_naming_rule.enum_value_should_be_pascal_case.symbols = enum_values
+dotnet_naming_rule.enum_value_should_be_pascal_case.style = pascal_case
+
+# ============================================================================
+# NAMING CONVENTIONS - GENERIC TYPE PARAMETERS
+# ============================================================================
+
+# Generic type parameters should be PascalCase with single letter
+dotnet_naming_rule.generic_type_parameter_should_be_single_letter_pascal.severity = none
+dotnet_naming_rule.generic_type_parameter_should_be_single_letter_pascal.symbols = generic_type_parameters
+dotnet_naming_rule.generic_type_parameter_should_be_single_letter_pascal.style = single_letter_pascal
+
+# ============================================================================
+# TIXL-SPECIFIC NAMING PATTERNS
+# ============================================================================
+
+# TiXL project files should have TiXL prefix
+dotnet_naming_rule.tixl_files_should_have_prefix.severity = error
+dotnet_naming_rule.tixl_files_should_have_prefix.symbols = tixl_project_files
+dotnet_naming_rule.tixl_files_should_have_prefix.style = tixl_prefix_style
+
+# Namespace should follow TiXL.{Module}.{Feature}.{SubFeature} pattern
+dotnet_naming_rule.tixl_namespace_should_follow_pattern.severity = error
+dotnet_naming_rule.tixl_namespace_should_follow_pattern.symbols = tixl_namespaces
+dotnet_naming_rule.tixl_namespace_should_follow_pattern.style = tixl_namespace_style
+
+# ============================================================================
+# SYMBOL DEFINITIONS
+# ============================================================================
+
+# Define symbol sets for naming rules
+
+dotnet_naming_symbols.any_class.applicable_kinds = class
+dotnet_naming_symbols.any_class.applicable_accessibilities = public, internal, private, protected
+
+dotnet_naming_symbols.any_interface.applicable_kinds = interface
+dotnet_naming_symbols.any_interface.applicable_accessibilities = public, internal, private, protected
+
+dotnet_naming_symbols.any_struct.applicable_kinds = struct
+dotnet_naming_symbols.any_struct.applicable_accessibilities = public, internal, private, protected
+
+dotnet_naming_symbols.any_method.applicable_kinds = method
+dotnet_naming_symbols.any_method.applicable_accessibilities = public, internal, private, protected
+
+dotnet_naming_symbols.any_property.applicable_kinds = property
+dotnet_naming_symbols.any_property.applicable_accessibilities = public, internal, private, protected
+
+dotnet_naming_symbols.public_events.applicable_kinds = event
+dotnet_naming_symbols.public_events.applicable_accessibilities = public, internal
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.applicable_accessibilities = public, internal, private, protected
+dotnet_naming_symbols.constants.required_modifiers = const
+
+dotnet_naming_symbols.static_readonly_fields.applicable_kinds = field
+dotnet_naming_symbols.static_readonly_fields.applicable_accessibilities = public, internal, private, protected
+dotnet_naming_symbols.static_readonly_fields.required_modifiers = static, readonly
+
+dotnet_naming_symbols.local_variables.applicable_kinds = local
+dotnet_naming_symbols.local_variables.applicable_accessibilities = *
+
+dotnet_naming_symbols.parameters.applicable_kinds = parameter
+dotnet_naming_symbols.parameters.applicable_accessibilities = *
+
+dotnet_naming_symbols.enum_types.applicable_kinds = enum
+dotnet_naming_symbols.enum_types.applicable_accessibilities = public, internal, private, protected
+
+dotnet_naming_symbols.enum_values.applicable_kinds = enum_member
+dotnet_naming_symbols.enum_values.applicable_accessibilities = public, internal, private, protected
+
+dotnet_naming_symbols.generic_type_parameters.applicable_kinds = type_parameter
+dotnet_naming_symbols.generic_type_parameters.applicable_accessibilities = *
+
+dotnet_naming_symbols.tixl_project_files.applicable_kinds = class, interface, struct, enum, namespace
+dotnet_naming_symbols.tixl_project_files.applicable_accessibilities = public, internal
+
+dotnet_naming_symbols.tixl_namespaces.applicable_kinds = namespace
+dotnet_naming_symbols.tixl_namespaces.applicable_accessibilities = public, internal
+
+# ============================================================================
+# NAMING STYLES
+# ============================================================================
+
+# Define naming styles
+
+# PascalCase style
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+# CamelCase style
+dotnet_naming_style.camel_case.capitalization = camel_case
+
+# CamelCase with underscore prefix
+dotnet_naming_style.camel_case_with_underscore_prefix.capitalization = camel_case
+dotnet_naming_style.camel_case_with_underscore_prefix.required_prefix = _
+
+# PascalCase with 'I' prefix
+dotnet_naming_style.pascal_case_with_i_prefix.capitalization = pascal_case
+dotnet_naming_style.pascal_case_with_i_prefix.required_prefix = I
+
+# Single letter PascalCase
+dotnet_naming_style.single_letter_pascal.capitalization = pascal_case
+dotnet_naming_style.single_letter_pascal.word_separator = 
+
+# TiXL prefix style (for project files)
+dotnet_naming_style.tixl_prefix_style.capitalization = pascal_case
+dotnet_naming_style.tixl_prefix_style.required_prefix = TiXL.
+
+# TiXL namespace style
+dotnet_naming_style.tixl_namespace_style.capitalization = pascal_case
+dotnet_naming_style.tixl_namespace_style.word_separator = .
+dotnet_naming_style.tixl_namespace_style.required_prefix = TiXL.
+
+# ============================================================================
+# ADDITIONAL CODE STYLE RULES
+# ============================================================================
+
+# Use explicit accessibility modifiers
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Property and method organization
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+dotnet_sort_system_directives_first = true
+
+# Use lambda expressions where appropriate
+dotnet_style_using_alias_directive = true:suggestion
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:suggestion
+
+# Expression-level preferences
+dotnet_style_explicit_tuple_names = true:suggestion
+dotnet_style_null_propagation = true:suggestion
+dotnet_style_coalesce_expression = true:suggestion
+dotnet_style_null_check_over_type_check = true:suggestion
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:suggestion
+dotnet_style_prefer_inferred_tuple_names = true:suggestion
+dotnet_style_prefer_inferred_anonymous_type_member_names = true:suggestion
+dotnet_style_prefer_auto_properties = true:silent
+dotnet_style_prefer_conditional_expression_over_assignment = true:silent
+dotnet_style_prefer_conditional_expression_over_return = true:silent
+
+# ============================================================================
+# TIXL-SPECIFIC CONFIGURATION
+# ============================================================================
+
+# TiXL project files should follow specific patterns
+# These rules are implemented in the Roslyn analyzers for more sophisticated checking
+
+# Quality gate configuration
+dotnet_diagnostic.TiXL012001.severity = error
+dotnet_diagnostic.TiXL012002.severity = warning
+dotnet_diagnostic.TiXL012003.severity = error
+dotnet_diagnostic.TiXL012004.severity = warning
+dotnet_diagnostic.TiXL012005.severity = warning
+dotnet_diagnostic.TiXL012006.severity = error
+dotnet_diagnostic.TiXL012007.severity = warning
+dotnet_diagnostic.TiXL012008.severity = warning
+dotnet_diagnostic.TiXL012009.severity = error
+dotnet_diagnostic.TiXL012010.severity = info

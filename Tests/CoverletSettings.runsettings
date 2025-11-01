@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <!-- Output formats -->
+          <Format>cobertura,json</Format>
+          
+          <!-- Include patterns for coverage -->
+          <Include>[TiXL.Core]*</Include>
+          <Include>[TiXL.Operators]*</Include>
+          <Include>[TiXL.Gfx]*</Include>
+          <Include>[TiXL.Editor]*</Include>
+          <Include>[TiXL.Gui]*</Include>
+          <Include>[TiXL.Resources]*</Include>
+          
+          <!-- Exclude test and generated code -->
+          <Exclude>[*]*Test*</Exclude>
+          <Exclude>[*]*Benchmarks*</Exclude>
+          <Exclude>[*]*Mocks*</Exclude>
+          <Exclude>[*]*Fixtures*</Exclude>
+          <Exclude>[*]*Examples*</Exclude>
+          <Exclude>[*]*Microsoft.VisualStudio.TestPlatform.*</Exclude>
+          <Exclude>[*]*xunit.*</Exclude>
+          <Exclude>[*]*Moq.*</Exclude>
+          <Exclude>[*]*FluentAssertions.*</Exclude>
+          <Exclude>[*]*BenchmarkDotNet.*</Exclude>
+          <Exclude>[*]*System.*</Exclude>
+          <Exclude>[*]*Microsoft.Extensions.*</Exclude>
+          
+          <!-- Exclude specific files and patterns -->
+          <ExcludeByFile>**/*Designer.cs</ExcludeByFile>
+          <ExcludeByFile>**/*AssemblyInfo.cs</ExcludeByFile>
+          <ExcludeByFile>**/*Resources.Designer.cs</ExcludeByFile>
+          <ExcludeByFile>**/*.g.cs</ExcludeByFile>
+          <ExcludeByFile>**/*.Designer.cs</ExcludeByFile>
+          <ExcludeByAttribute>[GeneratedCode]</ExcludeByAttribute>
+          <ExcludeByAttribute>[DebuggerDisplay]</ExcludeByAttribute>
+          <ExcludeByAttribute>[Serializable]</ExcludeByAttribute>
+          
+          <!-- Minimum coverage thresholds by module -->
+          <Threshold>80</Threshold>
+          <ThresholdType>line,branch</ThresholdType>
+          <ThresholdStat>covered</ThresholdStat>
+          
+          <!-- Performance settings -->
+          <UseSourceLink>false</UseSourceLink>
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+          <SingleHit>false</SingleHit>
+          <IncludeDiagnosticMessages>false</IncludeDiagnosticMessages>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+  
+  <!-- Logger settings for detailed reporting -->
+  <LoggerRunSettings>
+    <Loggers>
+      <Logger friendlyName="console" enabled="true">
+        <Configuration>
+          <Verbosity>detailed</Verbosity>
+        </Configuration>
+      </Logger>
+      <Logger friendlyName="trx" enabled="true">
+        <Configuration>
+          <LogFileName>TestResults.trx</LogFileName>
+        </Configuration>
+      </Logger>
+      <Logger friendlyName="nunit" enabled="false" />
+      <Logger friendlyName="xunit" enabled="false" />
+    </Loggers>
+  </LoggerRunSettings>
+  
+  <!-- Test execution settings -->
+  <MSTestRunSettings>
+    <Execution>
+      <IncludeTestMetadata>false</IncludeTestMetadata>
+      <TestTimeout>300000</TestTimeout>
+    </Execution>
+  </MSTestRunSettings>
+</RunSettings>

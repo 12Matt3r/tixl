@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>TiXL.NamingConventions.Analyzers</PackageId>
+    <Title>TiXL Naming Conventions Analyzers</Title>
+    <Description>Custom Roslyn analyzers for enforcing TiXL naming conventions</Description>
+    <PackageTags>roslyn analyzer csharp naming conventions tixl</PackageTags>
+    <RootNamespace>TiXL.NamingConventions</RootNamespace>
+    <PackageVersion>1.0.0</PackageVersion>
+    <Authors>TiXL Team</Authors>
+    <Company>TiXL</Company>
+    <Product>TiXL Naming Conventions</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces.MSBuild" Version="4.8.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.8.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Build.Locator" Version="1.5.5" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="tools\*.ps1" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

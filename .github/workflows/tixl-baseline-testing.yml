@@ -1,0 +1,340 @@
+# TiXL Continuous Integration Pipeline Configuration
+# Comprehensive testing pipeline for baseline test suite
+
+name: TiXL Baseline Testing Suite (TIXL-041)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  # Fast smoke tests for quick feedback
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore Tests/TiXL.Tests.csproj
+        
+      - name: Run smoke tests
+        run: |
+          dotnet test Tests/TiXL.Tests.csproj \
+            --filter "Category=Smoke" \
+            --logger "console;verbosity=minimal" \
+            --no-restore
+            
+      - name: Publish smoke test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Smoke Test Results
+          path: TestResults.trx
+          reporter: dotnet-trx
+
+  # Full unit test suite
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore Tests/TiXL.Tests.csproj
+        
+      - name: Build tests
+        run: dotnet build Tests/TiXL.Tests.csproj --no-restore --configuration Release
+        
+      - name: Run unit tests
+        run: |
+          dotnet test Tests/TiXL.Tests.csproj \
+            --filter "Category=Unit" \
+            --collect:"XPlat Code Coverage" \
+            --settings Tests/TestSettings.runsettings \
+            --logger "trx;LogFileName=UnitTestResults.trx" \
+            --no-build
+            
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.cobertura.xml
+          flags: unit-tests
+          name: unit-tests
+          
+      - name: Publish unit test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Unit Test Results
+          path: UnitTestResults.trx
+          reporter: dotnet-trx
+
+  # Integration tests
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore Tests/TiXL.Tests.csproj
+        
+      - name: Build tests
+        run: dotnet build Tests/TiXL.Tests.csproj --no-restore --configuration Release
+        
+      - name: Run integration tests
+        run: |
+          dotnet test Tests/TiXL.Tests.csproj \
+            --filter "Category=Integration" \
+            --collect:"XPlat Code Coverage" \
+            --settings Tests/TestSettings.runsettings \
+            --logger "trx;LogFileName=IntegrationTestResults.trx" \
+            --no-build
+            
+      - name: Upload integration test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Integration Test Results
+          path: IntegrationTestResults.trx
+          reporter: dotnet-trx
+
+  # Performance tests
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore Tests/TiXL.Tests.csproj
+        
+      - name: Build tests
+        run: dotnet build Tests/TiXL.Tests.csproj --no-restore --configuration Release
+        
+      - name: Run performance tests
+        run: |
+          dotnet test Tests/TiXL.Tests.csproj \
+            --filter "Category=Performance" \
+            --logger "trx;LogFileName=PerformanceTestResults.trx" \
+            --logger "console;verbosity=normal" \
+            --no-build
+            
+      - name: Publish performance test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Performance Test Results
+          path: PerformanceTestResults.trx
+          reporter: dotnet-trx
+
+  # Full test suite with coverage
+  full-test-suite:
+    name: Full Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: [smoke-tests, unit-tests, integration-tests]
+    if: github.event_name == 'schedule' || github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore Tests/TiXL.Tests.csproj
+        
+      - name: Build tests
+        run: dotnet build Tests/TiXL.Tests.csproj --no-restore --configuration Release
+        
+      - name: Run all tests with coverage
+        run: |
+          dotnet test Tests/TiXL.Tests.csproj \
+            --collect:"XPlat Code Coverage" \
+            --settings Tests/TestSettings.runsettings \
+            --logger "trx;LogFileName=FullTestResults.trx" \
+            --logger "html;LogFileName=FullTestResults.html" \
+            --no-build
+            
+      - name: Generate coverage report
+        run: |
+          reportgenerator \
+            -reports:./TestResults/coverage.cobertura.xml \
+            -targetdir:./CoverageReports \
+            -reporttypes:Html;Summary
+          
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./TestResults/coverage.cobertura.xml
+          flags: full-tests
+          name: full-test-suite
+          
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoverageReports
+          path: ./CoverageReports/
+          
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestArtifacts
+          path: |
+            TestResults/
+            CoverageReports/
+
+  # Cross-platform testing
+  cross-platform-tests:
+    name: Cross-Platform Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        test-type: [unit, integration]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore Tests/TiXL.Tests.csproj
+        
+      - name: Run ${{ matrix.test-type }} tests on ${{ matrix.os }}
+        run: |
+          dotnet test Tests/TiXL.Tests.csproj \
+            --filter "Category=${{ matrix.test-type }}" \
+            --logger "trx;LogFileName=${ matrix.test-type }TestResults_${ matrix.os }.trx" \
+            --no-build
+            
+      - name: Upload cross-platform test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CrossPlatformTestResults-${{ matrix.os }}-${{ matrix.test-type }}
+          path: ${{ matrix.test-type }}TestResults_*.trx
+
+  # Security tests
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore Tests/TiXL.Tests.csproj
+        
+      - name: Run security tests
+        run: |
+          dotnet test Tests/TiXL.Tests.csproj \
+            --filter "Category=Security" \
+            --logger "console;verbosity=minimal" \
+            --no-build
+            
+  # Memory leak detection
+  memory-leak-tests:
+    name: Memory Leak Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore Tests/TiXL.Tests.csproj
+        
+      - name: Run memory leak tests
+        run: |
+          dotnet test Tests/TiXL.Tests.csproj \
+            --filter "Category=Performance && Name=*Memory*" \
+            --logger "console;verbosity=detailed" \
+            --no-build
+            
+  # Generate test summary
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [smoke-tests, unit-tests, integration-tests, performance-tests, security-tests]
+    if: always()
+    steps:
+      - name: Download test artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          
+      - name: Generate test summary
+        run: |
+          echo "## TiXL Test Suite Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Results" >> $GITHUB_STEP_SUMMARY
+          
+          # Summary would include pass/fail counts, coverage, etc.
+          echo "- Smoke Tests: ${{ needs.smoke-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit Tests: ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Integration Tests: ${{ needs.integration-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance Tests: ${{ needs.performance-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Security Tests: ${{ needs.security-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage reports are available in the artifacts section." >> $GITHUB_STEP_SUMMARY

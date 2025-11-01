@@ -1,0 +1,230 @@
+# Custom Secret Patterns for TiXL Repository
+# This file defines custom secret patterns specific to TiXL project
+
+version: 1.0
+patterns:
+  # TiXL-specific API keys and tokens
+  - name: "TiXL_API_Token"
+    pattern: |
+      (?i)(tixl[_-]?(api[_-]?key|token|secret)[::-]\s*['"]?[a-zA-Z0-9]{32,}['"]?)
+      |(['"]tixl[_-]?(api[_-]?key|token|secret)['"]\s*[:=]\s*['"][a-zA-Z0-9]{32,}['"])
+    description: "TiXL-specific API keys and tokens"
+    severity: "critical"
+    
+  # NDI (Network Device Interface) credentials
+  - name: "NDI_Credentials"
+    pattern: |
+      (?i)(ndi[_-]?(key|token|secret|password)[::-]\s*['"]?[a-zA-Z0-9]{16,}['"]?)
+      |(['"]ndi[_-]?(key|token|secret|password)['"]\s*[:=]\s*['"][a-zA-Z0-9]{16,}['"])
+    description: "NDI (Network Device Interface) credentials"
+    severity: "high"
+    
+  # Spout shared memory credentials  
+  - name: "Spout_Secret"
+    pattern: |
+      (?i)(spout[_-]?(secret|token|key)[::-]\s*['"]?[a-zA-Z0-9]{20,}['"]?)
+      |(['"]spout[_-]?(secret|token|key)['"]\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"])
+    description: "Spout shared memory credentials"
+    severity: "high"
+    
+  # Silk.NET API keys
+  - name: "SilkNET_API_Key"
+    pattern: |
+      (?i)(silk[_.]?(net[_-]?)?(api[_-]?key|token|secret)[::-]\s*['"]?[a-zA-Z0-9]{24,}['"]?)
+      |(['"]silk[_.]?(net[_-]?)?(api[_-]?key|token|secret)['"]\s*[:=]\s*['"][a-zA-Z0-9]{24,}['"])
+    description: "Silk.NET graphics API keys"
+    severity: "medium"
+    
+  # EmguCV license keys
+  - name: "EmguCV_License"
+    pattern: |
+      (?i)(emgu[_-]?(cv|cv[_-]?license)[::-]\s*['"]?[a-zA-Z0-9]{32,}['"]?)
+      |(['"]emgu[_-]?(cv|cv[_-]?license)['"]\s*[:=]\s*['"][a-zA-Z0-9]{32,}['"])
+    description: "EmguCV computer vision library license keys"
+    severity: "medium"
+    
+  # Real-time graphics API keys
+  - name: "Realtime_Graphics_Tokens"
+    pattern: |
+      (?i)(graphics[_-]?(api[_-]?key|token|secret)[::-]\s*['"]?[a-zA-Z0-9]{28,}['"]?)
+      |(['"]graphics[_-]?(api[_-]?key|token|secret)['"]\s*[:=]\s*['"][a-zA-Z0-9]{28,}['"])
+    description: "Real-time graphics API keys"
+    severity: "high"
+    
+  # Audio processing API keys
+  - name: "Audio_Processing_Keys"
+    pattern: |
+      (?i)(audio[_-]?(api[_-]?key|token|secret)[::-]\s*['"]?[a-zA-Z0-9]{24,}['"]?)
+      |(['"]audio[_-]?(api[_-]?key|token|secret)['"]\s*[:=]\s*['"][a-zA-Z0-9]{24,}['"])
+    description: "Audio processing service API keys"
+    severity: "medium"
+    
+  # MIDI/OSC integration tokens
+  - name: "MIDI_OSC_Tokens"
+    pattern: |
+      (?i)((midi|osc)[_-]?(token|key|secret)[::-]\s*['"]?[a-zA-Z0-9]{20,}['"]?)
+      |(['"](midi|osc)[_-]?(token|key|secret)['"]\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"])
+    description: "MIDI and OSC integration tokens"
+    severity: "medium"
+    
+  # DirectX 12 shader compilation keys
+  - name: "DirectX12_Keys"
+    pattern: |
+      (?i)(directx[_-]?12[_-]?(key|token|secret)[::-]\s*['"]?[a-zA-Z0-9]{24,}['"]?)
+      |(['"]directx[_-]?12[_-]?(key|token|secret)['"]\s*[:=]\s*['"][a-zA-Z0-9]{24,}['"])
+    description: "DirectX 12 specific compilation and optimization keys"
+    severity: "high"
+    
+  # Node editor configuration secrets
+  - name: "NodeEditor_Secrets"
+    pattern: |
+      (?i)(node[_-]?editor[_-]?(secret|token|key)[::-]\s*['"]?[a-zA-Z0-9]{20,}['"]?)
+      |(['"]node[_-]?editor[_-]?(secret|token|key)['"]\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"])
+    description: "Node editor configuration secrets"
+    severity: "medium"
+    
+  # Hardware acceleration keys
+  - name: "Hardware_Accel_Keys"
+    pattern: |
+      (?i)(gpu[_-]?(accel|acceleration)[_-]?(key|token|secret)[::-]\s*['"]?[a-zA-Z0-9]{24,}['"]?)
+      |(['"]gpu[_-]?(accel|acceleration)[_-]?(key|token|secret)['"]\s*[:=]\s*['"][a-zA-Z0-9]{24,}['"])
+    description: "GPU hardware acceleration keys"
+    severity: "high"
+    
+  # Video streaming credentials
+  - name: "Video_Streaming_Credentials"
+    pattern: |
+      (?i)(video[_-]?(stream|streaming)[_-]?(key|token|secret|credential)[::-]\s*['"]?[a-zA-Z0-9]{24,}['"]?)
+      |(['"]video[_-]?(stream|streaming)[_-]?(key|token|secret|credential)['"]\s*[:=]\s*['"][a-zA-Z0-9]{24,}['"])
+    description: "Video streaming service credentials"
+    severity: "high"
+    
+  # Performance monitoring keys
+  - name: "Performance_Monitoring_Keys"
+    pattern: |
+      (?i)(perf[_-]?(monitor|monitoring)[_-]?(key|token|secret)[::-]\s*['"]?[a-zA-Z0-9]{20,}['"]?)
+      |(['"]perf[_-]?(monitor|monitoring)[_-]?(key|token|secret)['"]\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"])
+    description: "Performance monitoring service keys"
+    severity: "low"
+
+# Exclude patterns (safe to ignore)
+exclusions:
+  - name: "Test_Fixtures"
+    pattern: |
+      \/Tests?\/
+      |\/test[_-]?
+      |\/mock[_-]?
+      |\/fixture[_-]?
+      |\/example[_-]?
+      |\/demo[_-]?
+    description: "Test files and mock data should not trigger secret alerts"
+    
+  - name: "Documentation"
+    pattern: |
+      \/docs?\/.*\.(md|txt)
+      |\/README\.
+      |\/wiki\/
+      |\/CHANGELOG\.
+      |\/LICENSE\.
+    description: "Documentation files may contain example patterns"
+    
+  - name: "Configuration_Examples"
+    pattern: |
+      \/config[_-]?
+      |\/example[_-]?
+      |\/sample[_-]?
+      |\/template[_-]?
+    description: "Configuration examples and templates"
+    
+  - name: "Generated_Code"
+    pattern: |
+      \/obj\/
+      \/bin\/
+      \/gen[_-]?
+      \/auto[_-]?
+      |\.g\.cs$
+      |\.Designer\.cs$
+    description: "Generated code files"
+
+# Severity levels and actions
+severity_levels:
+  critical:
+    action: "immediate_alert"
+    notify: ["security-team@company.com", "devops-lead@company.com"]
+    block_push: true
+    
+  high:
+    action: "alert"
+    notify: ["security-team@company.com"]
+    block_push: true
+    
+  medium:
+    action: "warning"
+    notify: ["dev-team@company.com"]
+    block_push: false
+    
+  low:
+    action: "info"
+    notify: []
+    block_push: false
+
+# Notification channels
+notifications:
+  slack:
+    enabled: true
+    webhook_secret: "SLACK_WEBHOOK_SECRET"
+    channel: "#security-alerts"
+    
+  email:
+    enabled: true
+    smtp_server: "SMTP_SERVER"
+    recipients:
+      - "security-team@company.com"
+      - "devops@company.com"
+      
+  github_issues:
+    enabled: true
+    template: "secret-exposure-incident.md"
+    labels: ["security", "secret-exposure", "high-priority"]
+    
+  teams:
+    enabled: false
+    webhook_url: "MS_TEAMS_WEBHOOK_URL"
+    
+# Compliance requirements
+compliance:
+  github_secret_scanning: true
+  push_protection: true
+  partner_integration: true
+  audit_logging: true
+  retention_period_days: 2555  # 7 years
+  
+# Monitoring and metrics
+monitoring:
+  enabled: true
+  metrics_retention_days: 365
+  alert_thresholds:
+    daily_finds: 5
+    weekly_finds: 20
+    monthly_finds: 50
+    
+  trend_analysis: true
+  baseline_period_days: 30
+  
+# Integration with other security tools
+integrations:
+  dependabot:
+    enabled: true
+    auto_fix: false
+    
+  codeql:
+    enabled: true
+    include_secret_scanning: true
+    
+  snyk:
+    enabled: false  # Requires commercial license
+    threshold: "medium"
+    
+  owasp_dependency_check:
+    enabled: true
+    include_secrets: true

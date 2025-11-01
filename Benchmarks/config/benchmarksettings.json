@@ -1,0 +1,136 @@
+{
+  "BenchmarkSettings": {
+    "Execution": {
+      "WarmupIterations": 3,
+      "MeasurementIterations": 10,
+      "JobLaunchCount": 1,
+      "MemoryDiagnosticLevel": "Basic",
+      "ThreadingDiagnostic": false,
+      "ProcessPriority": "High"
+    },
+    "Filtering": {
+      "IncludeCategories": [
+        "*FrameTime*",
+        "*MemoryUsage*", 
+        "*ProjectLoad*",
+        "*OperatorExec*",
+        "*GraphicsPerf*",
+        "*AudioLatency*"
+      ],
+      "ExcludeCategories": [
+        "*Development*",
+        "*Test*"
+      ]
+    },
+    "Categories": {
+      "FrameTime": {
+        "Description": "Real-time frame rate performance benchmarks",
+        "TargetFrameRate": 60,
+        "MaxFrameTime": 16.67,
+        "MinFrameRate": 30,
+        "Enabled": true
+      },
+      "MemoryUsage": {
+        "Description": "Memory allocation and GC pressure benchmarks", 
+        "MaxAllocationPerFrame": 1048576,
+        "MaxGCCollectionsPerSecond": 10,
+        "MaxMemoryLeakDetectionThreshold": 0,
+        "Enabled": true
+      },
+      "ProjectLoad": {
+        "Description": "Project loading and initialization benchmarks",
+        "MaxLoadTime": 5000,
+        "TargetLoadTime": 2000,
+        "MaxConcurrentLoads": 10,
+        "Enabled": true
+      },
+      "OperatorExec": {
+        "Description": "Operator execution performance benchmarks",
+        "MaxEvaluationTime": 2.0,
+        "MaxBatchSize": 1000,
+        "TargetEvaluationTime": 0.5,
+        "Enabled": true
+      },
+      "GraphicsPerf": {
+        "Description": "Graphics pipeline performance benchmarks",
+        "MaxDrawCallTime": 0.5,
+        "MaxShaderCompileTime": 100,
+        "MinFillRate": 1000000,
+        "Enabled": true
+      },
+      "AudioLatency": {
+        "Description": "Audio processing latency benchmarks",
+        "MaxLatency": 10.0,
+        "TargetLatency": 5.0,
+        "MinSampleRate": 44100,
+        "Enabled": true
+      }
+    },
+    "Scenes": {
+      "SimpleRendering": {
+        "Description": "Simple 3D scene with basic lighting",
+        "MeshCount": 100,
+        "LightCount": 2,
+        "ShaderComplexity": "Simple",
+        "ExpectedFrameTime": 8.0
+      },
+      "ComplexNodeGraph": {
+        "Description": "Complex node editor graph with many operators",
+        "NodeCount": 500,
+        "ConnectionCount": 1000,
+        "OperatorComplexity": "Medium",
+        "ExpectedEvaluationTime": 15.0
+      },
+      "MemoryIntensive": {
+        "Description": "Memory intensive scene with dynamic allocations",
+        "TextureCount": 50,
+        "BufferCount": 200,
+        "AllocationRate": "High",
+        "ExpectedMemoryUsage": 104857600
+      },
+      "AudioProcessing": {
+        "Description": "Complex audio processing pipeline",
+        "ChannelCount": 8,
+        "SampleRate": 48000,
+        "BufferSize": 1024,
+        "ExpectedLatency": 5.0
+      }
+    },
+    "Thresholds": {
+      "RegressionThreshold": 10.0,
+      "CriticalRegressionThreshold": 25.0,
+      "PerformanceGradeThresholds": {
+        "A": 90,
+        "B": 80, 
+        "C": 70,
+        "D": 60
+      }
+    },
+    "Reporting": {
+      "Formats": [
+        "Html",
+        "Json", 
+        "Csv"
+      ],
+      "IncludeSystemMetrics": true,
+      "IncludeRegressionAnalysis": true,
+      "IncludeTrendAnalysis": true,
+      "IncludePerformanceRecommendations": true
+    },
+    "Alerts": {
+      "Enabled": true,
+      "RealtimeAlerts": true,
+      "EmailNotifications": true,
+      "SlackNotifications": false,
+      "GitHubIssues": true,
+      "AlertCooldownMinutes": 30,
+      "MaxAlertsPerHour": 10
+    },
+    "HistoricalData": {
+      "RetentionDays": 365,
+      "AutoCleanup": true,
+      "BackupEnabled": true,
+      "AnalysisPeriodDays": 30
+    }
+  }
+}
