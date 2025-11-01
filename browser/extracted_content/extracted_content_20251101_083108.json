@@ -1,0 +1,26 @@
+📄 Extracted from page: tixl/Editor/Gui/Dialog/AboutDialog.cs at main · tixl3d/tixl · GitHub
+URL: https://github.com/tixl3d/tixl/blob/main/Editor/Gui/Dialog/AboutDialog.cs
+
+Extracted content:
+```json
+{
+  "title": "tixl/Editor/Gui/Dialog/AboutDialog.cs at main · tixl3d/tixl · GitHub",
+  "url": "https://github.com/tixl3d/tixl/blob/main/Editor/Gui/Dialog/AboutDialog.cs",
+  "summary": "The `AboutDialog.cs` file implements an 'About' dialog for the Tixl editor, providing essential application and system information. It leverages the immediate-mode GUI library ImGuiNET for its user interface. The class `AboutDialog` is a `sealed` internal class inheriting from a `ModalDialog` base class, suggesting a structured approach to dialog management. UI elements are rendered dynamically in the `Draw()` method, displaying details such as application version, build hash, current date, operating system information, .NET runtime details, and GPU specifications. System information is primarily gathered once upon class loading via static methods, with a dedicated `UpdateSystemInfo()` method for refreshing and preparing data for clipboard copying. The dialog incorporates custom styling and helper components built on top of ImGui to maintain a consistent look and feel.",
+  "key_points": [
+    "**UI Framework:** Utilizes ImGuiNET (Immediate Mode GUI) for rendering the dialog interface.",
+    "**Class Structure:** `AboutDialog` is an `internal sealed` class inheriting from `ModalDialog`, indicating a pattern for reusable, modal dialog components and preventing further inheritance.",
+    "**Dialog Management:** The `ModalDialog` base class likely handles common dialog behaviors like `BeginDialog`, `EndDialog`, and setting `DialogSize`, centralizing dialog lifecycle management.",
+    "**UI Rendering (Draw Method):** The `Draw()` method contains all UI definition, creating elements dynamically each frame using ImGui calls (`ImGui.Text`, `ImGui.Button`, `ImGui.Image`, etc.) and custom helper components (`FormInputs.AddSectionHeader`, `CustomComponents.TooltipForLastItem`).",
+    "**Event Handling:** Adheres to the ImGui immediate-mode pattern, where button clicks and other interactions are detected by checking the return value of UI functions directly (e.g., `if (ImGui.Button(...))`). Popup functionality for feedback is also handled via ImGui's `OpenPopup` and `BeginPopup`."
+    "**Data Binding/Display:** Information is directly pulled from static `readonly` fields (e.g., `gitCommitHash`, `operatingSystemInfo`) that are initialized once when the class loads. There is no explicit data binding framework; data is simply displayed as text or used in UI logic.",
+    "**System Information Retrieval:** Extensive use of `System.Diagnostics.Process`, `System.Management` (WMI for GPU/IDE info), `System.Runtime.InteropServices`, and `System.Windows.Forms.InputLanguage` to gather detailed system specifications.",
+    "**Styling and Helpers:** Employs `UiColors` for consistent theming and `FormInputs` / `CustomComponents` (likely custom wrappers around ImGui) to streamline UI layout and add common components like section headers and tooltips.",
+    "**Conditional Compilation:** Uses `#if DEBUG` preprocessor directives to include debug-specific information, such as the IDE name."
+  ],
+  "relevant_links": [
+    "https://github.com/tixl3d/tixl/blob/main/Editor/Gui/Dialog/AboutDialog.cs"
+  ],
+  "file_name": "about_dialog_analysis.json"
+}
+```

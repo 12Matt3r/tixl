@@ -1,0 +1,39 @@
+📄 Extracted from page: tixl/Core/Rendering/Material/PbrMaterial.cs at main · tixl3d/tixl · GitHub
+URL: https://github.com/tixl3d/tixl/blob/main/Core/Rendering/Material/PbrMaterial.cs
+
+Extracted content:
+```json
+{
+  "title": "tixl/Core/Rendering/Material/PbrMaterial.cs at main · tixl3d/tixl · GitHub",
+  "url": "https://github.com/tixl3d/tixl/blob/main/Core/Rendering/Material/PbrMaterial.cs",
+  "summary": "The PbrMaterial.cs file defines the `PbrMaterial` class, a core component in the Tixl 3D rendering engine responsible for encapsulating all properties and resources required to render an object using a Physically Based Rendering (PBR) shader. It manages material parameters, texture maps (albedo, emissive, roughness/metallic/occlusion, normal), and their corresponding DirectX Shader Resource Views (SRVs) and constant buffers. The class integrates with SharpDX.Direct3D11 for DirectX resource management, including the creation and updating of a constant buffer (`ParameterBuffer`) that holds PBR material properties, and proper disposal of all managed DirectX resources. It also provides a static method to create a default PBR material with predefined parameters and fallback textures.",
+  "key_points": [
+    {
+      "aspect": "Material Property Definitions",
+      "details": "The `PbrMaterial` class defines several key properties: `Name` (string), `AlbedoMapSrv`, `EmissiveMapSrv`, `RoughnessMetallicOcclusionSrv`, and `NormalSrv` (all `ShaderResourceView` for texture maps). It also contains a nested `PbrParameters` struct. This struct is marked with `[StructLayout(LayoutKind.Explicit, Size = Stride)]` and includes fields like `BaseColor` (Vector4), `EmissiveColor` (Vector4), `Roughness` (float), `Specular` (float), `Metal` (float), and padding, ensuring its memory layout matches the expected structure for a DirectX constant buffer."
+    },
+    {
+      "aspect": "Buffer Management & Constant Buffer Management",
+      "details": "The `PbrMaterial` holds a `SharpDX.Direct3D11.Buffer` named `ParameterBuffer`. This buffer serves as the constant buffer for the `PbrParameters` struct. The `UpdateParameterBuffer()` method is responsible for updating this buffer. It delegates the actual buffer management to `ResourceManager.SetupConstBuffer(Parameters, ref ParameterBuffer)`, implying that `ResourceManager` handles the creation (if `ParameterBuffer` is null) and data transfer (e.g., using `Map`/`Unmap` or `UpdateSubresource`) to keep the GPU-side buffer synchronized with the CPU-side `PbrParameters` struct."
+    },
+    {
+      "aspect": "DirectX Integration Patterns",
+      "details": "The file heavily utilizes `SharpDX.Direct3D11` types such as `Buffer`, `ShaderResourceView`, and `Texture2D`. The `PbrMaterial` class implements `IDisposable` to ensure proper cleanup of DirectX resources (SRVs and the parameter buffer) when the material is no longer needed. The `ResourceManager.Device` is used to create `ShaderResourceView` instances, indicating a centralized DirectX device access. Static fallback `BlackPixelSrv` and `WhitePixelSrv` are used for default texture values, leveraging `PbrContextSettings`."
+    },
+    {
+      "aspect": "Shader Parameter Binding & Material-to-Shader Communication",
+      "details": "The `PbrMaterial` class acts as a container for all data and resources relevant to a PBR shader. The `ParameterBuffer` (holding `PbrParameters`) would be bound to a constant buffer slot in a shader, providing per-material numerical properties. The `ShaderResourceView` members (e.g., `AlbedoMapSrv`, `NormalSrv`) would be bound to texture slots in the shader, allowing the shader to sample the appropriate texture maps. This approach clearly separates material data from shader logic, enabling efficient material-to-shader communication during rendering."
+    },
+    {
+      "aspect": "Shader Management & Rendering State Handling",
+      "details": "While `PbrMaterial` itself does not directly load or compile shader code, it provides the necessary inputs for PBR shaders. The `CreateDefault()` static method initializes a default PBR material. This includes creating default `ShaderResourceView`s for common textures (like a solid color for albedo/emissive, and specific colors for roughness/metallic/occlusion and normal maps) using `TextureUtils.CreateColorTexture` and `PbrContextSettings`. This establishes a baseline for rendering objects without explicit material assignments, contributing to initial rendering state setup for PBR."
+    }
+  ],
+  "relevant_links": [
+    "https://github.com/tixl3d/tixl/blob/main/Core/Rendering/Material/PbrContextSettings.cs",
+    "https://github.com/tixl3d/tixl/blob/main/Core/Rendering/Material/TextureUtils.cs",
+    "https://github.com/tixl3d/tixl/blob/main/Core/Resource/ResourceManager.cs"
+  ],
+  "file_name": "pbr_material_analysis.json"
+}
+```

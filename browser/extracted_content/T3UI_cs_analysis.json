@@ -1,0 +1,24 @@
+📄 Extracted from page: tixl/Editor/Gui/T3UI.cs at main · tixl3d/tixl · GitHub
+URL: https://github.com/tixl3d/tixl/blob/main/Editor/Gui/T3UI.cs
+
+Extracted content:
+```json
+{
+  "title": "tixl/Editor/Gui/T3UI.cs at main · tixl3d/tixl · GitHub",
+  "url": "https://github.com/tixl3d/tixl/blob/main/Editor/Gui/T3UI.cs",
+  "summary": "The `T3UI.cs` file defines the `T3Ui` static class, which serves as the central orchestrator for the entire Tixl editor's graphical user interface. It is built upon the `ImGuiNET` library, providing a frame-based rendering loop that manages UI component updates, user interactions, rendering, and integration with various backend systems. The class initializes the UI environment, processes each frame, handles global actions, and manages the lifecycle of editor windows and dialogs. It also integrates core functionalities like playback, audio, resource management, project handling, and input devices.",
+  "key_points": [
+    "**UI Framework Architecture**: The Tixl UI is primarily built using `ImGuiNET`, with `T3Ui` acting as a static orchestrator class that manages the main application loop, global state, and delegates tasks to specialized helper classes.",
+    "**Main Application Loop (`ProcessFrame`)**: This method defines the core rendering and interaction cycle, including profiling, styling, input handling (drag/drop, mouse wheel, keyboard, MIDI), project updates, audio engine completion, resource management, variation handling, node selection, and ultimately, drawing the UI.",
+    "**Component Organization**: UI components are highly modular, residing in various `T3.Editor.Gui` sub-namespaces such as `Dialog` (for various pop-up dialogs), `Interaction` (for keyboard, MIDI, timing, and general input handling), `Windows` (for managing editor windows and layouts), `Styling`, `UiHelpers`, and custom components.",
+    "**Rendering Approach**: Employs a frame-by-frame rendering model. It leverages `ImGui.DockSpaceOverViewport()` for flexible window layouts, and `WindowManager.Draw()` to render all registered editor windows. Specific drawing calls are made for the application menu bar and various dialogs. UI scaling (`UiScaleFactor`, `DisplayScaleFactor`) is supported.",
+    "**Input and Interaction Management**: Comprehensive handling for various input types including mouse (drag, hover, wheel), keyboard (`KeyActionHandling` for global shortcuts like Undo/Redo/Save/Toggle UI), MIDI (`CompatibleMidiDeviceHandling`), and OSC (`OscDataRecording`).",
+    "**System Integration Patterns**: Integrates with: \n    - **Audio/Animation**: `AudioEngine`, `PlaybackUtils`, `Playback` for timeline control. \n    - **Resource Management**: `ResourceManager` (file watching), `SrvManager` (texture cleanup). \n    - **Project Management**: `EditableSymbolProject`, `ProjectSetup` for symbol compilation and updates. \n    - **Persistence**: Background saving (`SaveInBackground`), auto-backup (`AutoBackup`). \n    - **Performance**: `Profiling`, `RenderStatsCollector`, `FrameStats`. \n    - **User Settings**: Persistent configurations through `UserSettings.Config`.",
+    "**Global Actions and Modes**: Implements global keyboard shortcuts for actions like saving, undo/redo, toggling UI elements, and special modes like 'Focus Mode' for simplified views."
+  ],
+  "relevant_links": [
+    "https://github.com/tixl3d/tixl/tree/main/Editor/Gui"
+  ],
+  "file_name": "T3UI_cs_analysis.json"
+}
+```

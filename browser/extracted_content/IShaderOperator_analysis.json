@@ -1,0 +1,24 @@
+📄 Extracted from page: tixl/Core/Operator/IShaderOperator.cs at main · tixl3d/tixl · GitHub
+URL: https://github.com/tixl3d/tixl/blob/main/Core/Operator/IShaderOperator.cs
+
+Extracted content:
+```json
+{
+  "title": "tixl/Core/Operator/IShaderOperator.cs at main · tixl3d/tixl · GitHub",
+  "url": "https://github.com/tixl3d/tixl/blob/main/Core/Operator/IShaderOperator.cs",
+  "summary": "This file defines two C# interfaces, `IShaderCodeOperator<T>` and `IShaderOperator<T>`, both designed to provide a standardized contract for operator classes that handle shader compilation and management within the Tixl 3D engine. Both interfaces are generic, constraining `T` to `AbstractShader`, and leverage C# 8.0 Default Interface Methods (DIMs) to encapsulate complex common logic, such as input dependency tracking, dirty flag management, and the shader compilation process itself. `IShaderCodeOperator<T>` focuses on compiling shaders from direct source code strings, while `IShaderOperator<T>` handles shaders loaded from file paths via a `ResourceManager` and includes a callback for post-compilation actions.",
+  "key_points": [
+    "**Generic Interfaces**: `IShaderCodeOperator<T>` and `IShaderOperator<T>` define contracts for shader operators, where `T` is a generic type parameter constrained to `AbstractShader`, allowing for different shader types (e.g., PixelShader, VertexShader).",
+    "**Default Interface Methods (DIMs)**: Both interfaces extensively use C# 8.0 DIMs for methods like `Initialize()` and `UpdateShader()` (in `IShaderCodeOperator`), centralizing common and often complex logic (e.g., setting up update actions, managing dirty flags, performing compilation), thereby reducing boilerplate code in implementing classes.",
+    "**Input/Output Slots**: The design heavily relies on `T3.Core.Operator.Slots.InputSlot<T>` for receiving input data (shader code, entry point, debug name, file path) and `T3.Core.Operator.Slots.Slot<T>` for outputting the compiled shader, integrating seamlessly with Tixl's operator graph system.",
+    "**Dirty Flag Pattern for Efficiency**: Both interfaces implement a dirty flag mechanism to prevent unnecessary shader recompilation. Changes to input slots (`Code`, `EntryPoint`, `Path`) invalidate the `ShaderSlot`, triggering a recompilation only when truly required.",
+    "**`IShaderCodeOperator<T>` - Direct Code Compilation**: This interface specifically handles shaders provided as a direct string (`InputSlot<string> Code`). Its private `UpdateShader` DIM performs the actual compilation using `ShaderCompiler.TryCompileShaderFromSource`, including validation and error reporting.",
+    "**`IShaderOperator<T>` - File-Based Resource Management**: This interface is designed for shaders loaded from a file path (`InputSlot<string> Path`). It integrates with a `ResourceManager` to handle loading, caching, and recompilation of shader resources from files. It also inherits `IDescriptiveFilename` for source path metadata.",
+    "**Post-Compilation Hook**: `IShaderOperator<T>` provides an abstract method `OnShaderUpdate(EvaluationContext context, T? shader)` that implementers must override, offering a callback point to perform custom actions after a shader has been updated or compiled by the `ResourceManager`.",
+    "**Robust Error Handling**: Both interfaces include a `SetWarning(string message)` method for reporting non-fatal issues and integrate with `instance.LogErrorState` for critical compilation failures, using `StringUtils.ParseShaderCompilationError` to process detailed error messages.",
+    "**Design Philosophy**: The design emphasizes reusability, modularity, and encapsulation of complex state management. By providing default implementations for core logic, the interfaces minimize the effort required for new shader operators while ensuring consistent behavior and robust error handling."
+  ],
+  "relevant_links": [],
+  "file_name": "IShaderOperator_analysis.json"
+}
+```

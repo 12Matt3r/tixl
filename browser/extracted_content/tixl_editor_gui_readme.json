@@ -1,0 +1,26 @@
+📄 Extracted from page: tixl/Editor/Gui/README.md at main · tixl3d/tixl · GitHub
+URL: https://github.com/tixl3d/tixl/blob/main/Editor/Gui/README.md
+
+Extracted content:
+```json
+{
+  "title": "tixl/Editor/Gui/README.md at main · tixl3d/tixl · GitHub",
+  "url": "https://github.com/tixl3d/tixl/blob/main/Editor/Gui/README.md",
+  "summary": "This README.md outlines the architectural design and interaction patterns for the GUI's Project Views within the Tixl editor. It details core components like `ProjectManager`, `GraphWindows`, and `ProjectView`, explaining how projects are loaded, viewed, and managed. Key architectural decisions include the handling of focused project views, efficient switching between open projects, navigation within project structures, and considerations for closing projects to prevent unintended data loss. The document provides insights into how the editor manages its graphical interface for different projects and instances, emphasizing a robust user experience for project navigation and management.",
+  "key_points": [
+    "The architecture revolves around `ProjectManager`, `GraphWindows`, and `ProjectView` for managing project display.",
+    "`ProjectView` is a self-contained component for rendering a graph view, including composition, timeline, and navigation history.",
+    "A `GraphWindow` can switch its content to an `OpenProject` via `GraphWindow.ViewProject()`, discarding previous components and initializing a new `ProjectView`.",
+    "Navigation within a project structure is managed by `ProjectView.TrySetComposition(InstancePath)`.",
+    "The system assumes an efficiently focused `ProjectView`, otherwise relevant windows (e.g., ParameterWindow) indicate 'No project active'.",
+    "`ProjectViews` are designed to be created and discarded efficiently without performance drops.",
+    "A mechanism (`ProjectManager.TryOpenInstancePath()`) is proposed for seamlessly switching to referenced instances in other open or new projects.",
+    "When opening an `InstancePath`, the system prioritizes the currently focused view, then other open views, then loading a new project.",
+    "Invalid `InstancePath` handling involves opening the deepest valid path and displaying an error.",
+    "Explicit handling for closing projects is discussed, suggesting a 'Close' button in `ProjectViewList` to prevent data loss if `ProjectViews` are merely discarded.",
+    "If an `OpenProject` is closed, its associated `ProjectView` should be discarded, and its `GraphWindow` should revert to the `ProjectList` view."
+  ],
+  "relevant_links": [],
+  "file_name": "tixl_editor_gui_readme.json"
+}
+```

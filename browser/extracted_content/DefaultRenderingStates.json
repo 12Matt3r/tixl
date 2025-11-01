@@ -1,0 +1,25 @@
+📄 Extracted from page: tixl/Core/Rendering/DefaultRenderingStates.cs at main · tixl3d/tixl · GitHub
+URL: https://github.com/tixl3d/tixl/blob/main/Core/Rendering/DefaultRenderingStates.cs
+
+Extracted content:
+```json
+{
+  "title": "tixl/Core/Rendering/DefaultRenderingStates.cs at main · tixl3d/tixl · GitHub",
+  "url": "https://github.com/tixl3d/tixl/blob/main/Core/Rendering/DefaultRenderingStates.cs",
+  "summary": "The `DefaultRenderingStates.cs` file in the Tixl project defines a static helper class, `DefaultRenderingStates`, responsible for generating and providing reusable default DirectX 11 rendering state objects. These states include Depth-Stencil States, Blend States, Rasterizer States, and Sampler States. The class uses lazy initialization to create these states only when they are first accessed, ensuring they are only created if a `ResourceManager.Device` (DirectX device) is available. This centralizes common rendering configurations, promoting consistency and reusability throughout the Tixl rendering pipeline.",
+  "key_points": [
+    "**Purpose:** Provides a collection of pre-configured, reusable default DirectX 11 state objects for rendering.",
+    "**Lazy Initialization:** Each state object (DepthStencilState, BlendState, RasterizerState, SamplerState) is initialized only upon its first access, and only if a `ResourceManager.Device` (DirectX 11 device) is available.",
+    "**Default Depth-Stencil State:** Configured with depth testing enabled (`IsDepthEnabled = true`), depth writing enabled (`DepthWriteMask = All`), less-than comparison (`DepthComparison = Less`), and full stencil read/write masks (255).",
+    "**Disabled Depth-Stencil State:** Configured with depth testing disabled (`IsDepthEnabled = false`).",
+    "**Default Blend State:** Configured for standard alpha blending with `SourceAlpha` for source and `InverseSourceAlpha` for destination, `Add` operation for both color and alpha, and all color channels written. `AlphaToCoverageEnable` is false.",
+    "**Disabled Blend State:** Configured with blending disabled (`IsBlendEnabled = false`) and all color channels written.",
+    "**Additive Blend State:** Configured for additive blending with `SourceAlpha` for source and `One` for destination, `Add` operation for both color and alpha, and all color channels written. `AlphaToCoverageEnable` is false.",
+    "**Default Blend Factor:** A static `Color4` property returning opaque white (1, 1, 1, 1).",
+    "**Default Rasterizer State:** Configured with solid fill mode (`FillMode = Solid`), back-face culling (`CullMode = Back`), and depth clipping enabled (`IsDepthClipEnabled = true`).",
+    "**Default Sampler State:** Configured with point filtering for minification, magnification, and mipmapping (`Filter = MinMagMipPoint`), clamp addressing for all texture coordinates (U, V, W), maximum anisotropy of 16, a comparison function of `Never`, and `Single.MaxValue` for maximum LOD."
+  ],
+  "relevant_links": [],
+  "file_name": "DefaultRenderingStates.json"
+}
+```

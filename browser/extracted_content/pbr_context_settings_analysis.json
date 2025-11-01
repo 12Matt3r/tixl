@@ -1,0 +1,26 @@
+📄 Extracted from page: tixl/Core/Rendering/Material/PbrContextSettings.cs at main · tixl3d/tixl · GitHub
+URL: https://github.com/tixl3d/tixl/blob/main/Core/Rendering/Material/PbrContextSettings.cs
+
+Extracted content:
+```json
+{
+  "title": "tixl/Core/Rendering/Material/PbrContextSettings.cs at main · tixl3d/tixl · GitHub",
+  "url": "https://github.com/tixl3d/tixl/blob/main/Core/Rendering/Material/PbrContextSettings.cs",
+  "summary": "The `PbrContextSettings` class in the Tixl engine is a static utility class responsible for managing global settings and resources pertinent to Physically Based Rendering (PBR). It initializes and provides access to essential PBR textures such as the BRDF lookup table and a prefiltered environment map, along with a default PBR material. This class centralizes these resources, making them readily available to the rendering pipeline through the `EvaluationContext`, thereby structuring how global PBR parameters are consumed by shaders for consistent PBR illumination.",
+  "key_points": [
+    "**Global PBR Settings Management:** The `PbrContextSettings` is a static class that serves as a central repository for global PBR-related rendering parameters, ensuring consistent PBR behavior across the engine.",
+    "**Environment Lighting Configuration:** It initializes and holds critical textures for Image-Based Lighting (IBL):\n    *   `pbr/BRDF-LookUp.dds`: A BRDF lookup texture (`PbrLookUpTextureSrv`) which is fundamental for accurate PBR shading calculations.\n    *   `images/hdri/studio_small_08-prefiltered.dds`: A prefiltered environment map (`_prefilteredBrdfTextureResource`), likely used for specular IBL, to simulate environment reflections and lighting.",
+    "**Default Material and Utility Textures:** A default `PbrMaterial` (`_defaultMaterial`) is created upon initialization, serving as a fallback for objects without a specified material. Additionally, utility textures like `WhitePixelTexture` and `BlackPixelTexture` are provided for general use or as placeholders.",
+    "**PBR Context Integration:** The `SetDefaultToContext` method is crucial for integrating these global settings into the `EvaluationContext`. It clears existing materials, assigns the `_defaultMaterial`, and makes the prefiltered environment map available to the context via the `PrefilteredSpecularId` string key.",
+    "**Shader Parameter Structure:** Global PBR textures are exposed for shader consumption either directly as `ShaderResourceView`s (e.g., `PbrLookUpTextureSrv`) or by being placed into the `EvaluationContext.ContextTextures` dictionary using well-defined constant string identifiers (`PrefilteredSpecularId`), allowing shaders to access them consistently within the rendering pipeline.",
+    "**Resource Loading and Error Handling:** Textures are loaded using `ResourceManager.CreateTextureResource`, and a `TryLoadTextureAsSrv` helper method simplifies the creation of `ShaderResourceView`s. Error logging is implemented to report failures in loading these critical PBR textures."
+  ],
+  "relevant_links": [
+    "https://github.com/tixl3d/tixl/blob/main/Core/Rendering/Material/PbrMaterial.cs",
+    "https://github.com/tixl3d/tixl/blob/main/Core/Resource/ResourceManager.cs",
+    "https://github.com/tixl3d/tixl/blob/main/Core/Operator/EvaluationContext.cs",
+    "https://github.com/tixl3d/tixl/blob/main/Core/Rendering/Material/TextureUtils.cs"
+  ],
+  "file_name": "pbr_context_settings_analysis.json"
+}
+```

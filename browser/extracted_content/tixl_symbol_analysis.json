@@ -1,0 +1,26 @@
+📄 Extracted from page: tixl/Core/Operator/Symbol.cs at main · tixl3d/tixl · GitHub
+URL: https://github.com/tixl3d/tixl/blob/main/Core/Operator/Symbol.cs
+
+Extracted content:
+```json
+{
+  "title": "tixl/Core/Operator/Symbol.cs at main · tixl3d/tixl · GitHub",
+  "url": "https://github.com/tixl3d/tixl/blob/main/Core/Operator/Symbol.cs",
+  "summary": "The `Symbol` class in `T3.Core.Operator` serves as the fundamental definition or blueprint for an operator within the Tixl system. It's a `sealed partial` class, indicating its foundational and non-inheritable nature, while also suggesting its implementation is distributed across multiple files for organization. It implements `IDisposable` and `IResource`, highlighting its role in resource management and lifecycle. \n\nA `Symbol` defines the structural composition of an operator, including its nested child operators (`Children`), the data flow between them (`Connections`), and its public interface through `InputDefinitions` and `OutputDefinitions`. It acts as a factory for creating and managing multiple runtime `Instance`s, ensuring that changes to the symbol's definition (like adding connections or invalidating inputs) are propagated to all active instances. The class integrates animation capabilities via `Animator` and `PlaybackSettings`, and dynamically links to its concrete C# `InstanceType` using reflection. Concurrency is managed using locks and `ConcurrentDictionary` for thread-safe access to child collections. Error logging is present for connection manipulation, although a `TODO` comment points to potential areas for improvement in multi-input connection handling, suggesting some complexity or technical debt in that specific area. Due to the provided content being truncated, a full analysis of the class's methods and properties is not possible.",
+  "key_points": [
+    "**Core Operator Definition**: The `Symbol` class is the blueprint for an operator, defining its structure, inputs, outputs, and internal connections.",
+    "**Resource and Lifecycle Management**: Implements `IDisposable` for proper resource cleanup and `IResource` to integrate with a broader resource management system (via `SymbolPackage`).",
+    "**Composite Design Pattern**: Operators can contain other operators as `Children`, forming a hierarchical structure for complex compositions.",
+    "**Instance Management**: Manages multiple runtime `Instance`s of the operator, propagating structural changes and invalidations to them.",
+    "**Dynamic Type Integration**: Uses `InstanceType` and reflection to link to concrete C# operator implementations, setting a static field `StaticSymbol` on the instance type itself.",
+    "**Concurrency Handling**: Employs `lock` statements (`_creationLock`) and `ConcurrentDictionary` (`_children`) to ensure thread-safe operations, particularly when managing instances and children.",
+    "**Partial Class for Organization**: The `partial` keyword indicates that its definition is spread across multiple files (e.g., `Symbol.Child.cs`, `Symbol.TypeUpdating.cs`), which aids in code organization.",
+    "**Input/Output Definitions**: Clearly defines `InputDefinitions` and `OutputDefinitions` to establish the operator's interface and data contract.",
+    "**Connection Management**: Provides methods for adding, removing, and replacing `Connection`s, with specific logic for handling multi-input slots (though a `TODO` highlights complexity in this area).",
+    "**Change Propagation**: Includes methods like `InvalidateInputInAllChildInstances` to ensure that changes to inputs or defaults are reflected across all relevant instances.",
+    "**Error Handling**: Uses `T3.Core.Logging.Log.Error` and `Log.Warning` for reporting issues during connection operations, indicating defensive coding."
+  ],
+  "relevant_links": [],
+  "file_name": "tixl_symbol_analysis.json"
+}
+```
