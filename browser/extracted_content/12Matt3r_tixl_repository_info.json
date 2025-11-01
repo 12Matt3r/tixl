@@ -1,0 +1,36 @@
+📄 Extracted from page: GitHub - 12Matt3r/tixl: Tooll 3 is an open source software to create realtime motion graphics.
+URL: https://github.com/12Matt3r/tixl/tree/main
+
+Extracted content:
+```json
+{
+  "title": "GitHub - 12Matt3r/tixl: Tooll 3 is an open source software to create realtime motion graphics.",
+  "url": "https://github.com/12Matt3r/tixl/tree/main",
+  "summary": "This GitHub repository, '12Matt3r/tixl', is a fork of the Tooll 3 (TiXL) project, an open-source software designed for creating real-time motion graphics. It targets a blend of real-time rendering, graph-based procedural content generation, and linear keyframe animation. TiXL enables artists to produce audio-reactive VJ content, utilize advanced interfaces for parameter exploration, and combine keyframe animation with automation. Technical artists can delve deeper for shader development (fragment/compute) and integrate inputs from MIDI controllers, sensors, OSC, or Spout. Version 4 is currently in active development, providing a stable platform for high-end visuals, motion graphics, and exporting standalone executables. The project aims to foster a community of artists, developers, and creative tinkerers.",
+  "key_points": [
+    "Project Name: TiXL (Tooll3)",
+    "Description: Open source software to create real-time motion graphics, combining real-time rendering, graph-based procedural content generation, and linear keyframe animation.",
+    "Target Audience/Use Cases: Artists (audio-reactive VJ content, parameter exploration, keyframe animation) and technical artists (shader development, MIDI/OSC/Spout input integration).",
+    "Development Status: Version 4 is under ongoing development, stable for high-end visuals and motion graphics, capable of exporting standalone executables.",
+    "Fork Details: This repository is a fork of 'tixl3d/tixl' and is 161 commits behind its main branch.",
+    "License: MIT License.",
+    "Languages Used: C# (90.7%) and HLSL (9.3%).",
+    "Main Branch: `main` (1 branch in total).",
+    "Latest Commit: 'v4.1.0.2' by 'pixtur' on 'Sep 28, 2025'.",
+    "Total Commits: 7,572 commits on the main branch.",
+    "Top-level File Structure (Directories): .Defaults, .Variations, .github, .run, Core, Dependencies, Editor, ImguiWindows, Installer, Logging, MsForms, Operators, Player, ProjectUpdater, Resources, Serialization, SilkWindowTest, SilkWindows, SystemUi, Windows.",
+    "Top-level File Structure (Key Files): .editorconfig, .gitattributes, .gitignore, LICENSE.txt, README.md, global.json, t3.sln."
+  ],
+  "relevant_links": [
+    "Official Website: https://tixl.app",
+    "Original Repository: https://github.com/tixl3d/tixl",
+    "License File: https://github.com/12Matt3r/tixl/blob/main/LICENSE.txt",
+    "Discord Community: https://discord.gg/YmSyQdeH3S",
+    "Installation Guide: https://github.com/tixl3d/tixl/wiki/help.Installation",
+    "Documentation (Wiki): https://github.com/tixl3d/tixl/wiki",
+    "Tutorial Videos: https://www.youtube.com/watch?v=eH2E02U6P5Q&list=PLj-rnPROvbn3LigXGRSDvmLtgTwmNHcQs&index=4",
+    "Full Commit History: https://github.com/12Matt3r/tixl/commits/main/"
+  ],
+  "file_name": "12Matt3r_tixl_repository_info.json"
+}
+```
