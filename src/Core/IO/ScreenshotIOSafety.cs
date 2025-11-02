@@ -12,11 +12,11 @@ namespace TiXL.Core.IO
     /// </summary>
     public static class ScreenshotIOSafety
     {
-        private const int MaxScreenshotSize = 100 * 1024 * 1024; // 100MB
-        private const int MinScreenshotWidth = 100;
-        private const int MinScreenshotHeight = 100;
-        private const int MaxScreenshotWidth = 8192;
-        private const int MaxScreenshotHeight = 8192;
+        private const int MAX_SCREENSHOT_SIZE = 100 * 1024 * 1024; // 100MB
+        private const int MIN_SCREENSHOT_WIDTH = 100;
+        private const int MIN_SCREENSHOT_HEIGHT = 100;
+        private const int MAX_SCREENSHOT_WIDTH = 8192;
+        private const int MAX_SCREENSHOT_HEIGHT = 8192;
         
         /// <summary>
         /// Safely saves a screenshot with validation and optimization
@@ -32,12 +32,12 @@ namespace TiXL.Core.IO
                 }
                 
                 // Validate dimensions
-                if (screenshot.Width < MinScreenshotWidth || screenshot.Height < MinScreenshotHeight)
+                if (screenshot.Width < MIN_SCREENSHOT_WIDTH || screenshot.Height < MIN_SCREENSHOT_HEIGHT)
                 {
                     return ScreenshotSaveResult.Failed($"Screenshot too small: {screenshot.Width}x{screenshot.Height}");
                 }
                 
-                if (screenshot.Width > MaxScreenshotWidth || screenshot.Height > MaxScreenshotHeight)
+                if (screenshot.Width > MAX_SCREENSHOT_WIDTH || screenshot.Height > MAX_SCREENSHOT_HEIGHT)
                 {
                     return ScreenshotSaveResult.Failed($"Screenshot too large: {screenshot.Width}x{screenshot.Height}");
                 }
@@ -74,7 +74,7 @@ namespace TiXL.Core.IO
                 {
                     // Verify the saved file
                     var fileInfo = new FileInfo(filePath);
-                    if (fileInfo.Length > MaxScreenshotSize)
+                    if (fileInfo.Length > MAX_SCREENSHOT_SIZE)
                     {
                         // File too large, try with higher compression
                         if (format == ImageFormat.Jpeg)
@@ -140,7 +140,7 @@ namespace TiXL.Core.IO
                 }
                 
                 var fileInfo = new FileInfo(filePath);
-                if (fileInfo.Length > MaxScreenshotSize)
+                if (fileInfo.Length > MAX_SCREENSHOT_SIZE)
                 {
                     return ScreenshotLoadResult.Failed("Screenshot file too large");
                 }
@@ -166,7 +166,7 @@ namespace TiXL.Core.IO
                 }
                 
                 // Validate loaded image
-                if (screenshot.Width < MinScreenshotWidth || screenshot.Height < MinScreenshotHeight)
+                if (screenshot.Width < MIN_SCREENSHOT_WIDTH || screenshot.Height < MIN_SCREENSHOT_HEIGHT)
                 {
                     screenshot.Dispose();
                     return ScreenshotLoadResult.Failed($"Screenshot too small: {screenshot.Width}x{screenshot.Height}");

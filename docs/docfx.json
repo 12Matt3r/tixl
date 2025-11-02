@@ -1,0 +1,144 @@
+# TiXL Documentation Generation Configuration
+# This file configures documentation generation for the TiXL project
+
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/master/docfx.json",
+  "title": "TiXL Real-time Graphics Engine",
+  "description": "Comprehensive API documentation for TiXL real-time graphics engine",
+  "build": {
+    "globalMetadata": {
+      "appTitle": "TiXL Real-time Graphics Engine",
+      "appDescription": "High-performance real-time graphics and audio processing engine built with C# and DirectX 12",
+      "appLogoPath": "../images/tixl-logo.png",
+      "brand": "TiXL",
+      "company": "TiXL Technologies",
+      "copyright": "Copyright © 2024 TiXL Technologies. All rights reserved.",
+      "license": "MIT",
+      "projectUrl": "https://github.com/tixl/tixl",
+      "repositoryUrl": "https://github.com/tixl/tixl.git",
+      "feedbackLink": "https://github.com/tixl/tixl/issues",
+      "homepage": "https://tixl.tech",
+      "keywords": ["graphics", "real-time", "audio", "visual", "directx", "csharp", "dotnet", "performance", "engine"],
+      "version": "1.0.0",
+      "lang": "en-US",
+      "searchEngine": "lunr",
+      "cleanOutput": true,
+      "abortWarningOnError": true
+    },
+    "globalMetadataFiles": [
+      "metadata/globalMetadata.json"
+    ],
+    "fileMetadataFiles": [],
+    "template": [
+      "default",
+      "templates/tixl-template"
+    ],
+    "dest": "docs/_site",
+    "content": [
+      {
+        "files": [
+          "**/*.md",
+          "**/*.yml",
+          "**/*.yaml"
+        ],
+        "exclude": [
+          "**/obj/**",
+          "**/bin/**",
+          "**/node_modules/**",
+          "**/_site/**"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "images/**",
+          "icons/**",
+          "api/**"
+        ],
+        "exclude": [
+          "**/node_modules/**",
+          "**/_site/**"
+        ]
+      }
+    ],
+    "overwrite": [
+      {
+        "files": [
+          "apidoc/**.md"
+        ],
+        "exclude": [
+          "**/obj/**",
+          "**/bin/**"
+        ]
+      }
+    ],
+    "xrefService": [
+      "https://xref.docs.microsoft.com/query?uid={uid}"
+    ],
+    "lruSize": 1000,
+    "allowReadOutsideContentFolder": true,
+    "cleanupCacheHistory": false,
+    "restoreUndocumentedApi": false,
+    "docsets": [
+      {
+        "docset": {
+          "name": "TiXL.Core",
+          "files": [
+            {
+              "src": "../src/Core/AudioVisual/**.cs",
+              "dest": "api/AudioVisual"
+            },
+            {
+              "src": "../src/Core/Graphics/**.cs", 
+              "dest": "api/Graphics"
+            },
+            {
+              "src": "../src/Core/IO/**.cs",
+              "dest": "api/IO"
+            },
+            {
+              "src": "../src/Core/Logging/**.cs",
+              "dest": "api/Logging"
+            },
+            {
+              "src": "../src/Core/NodeGraph/**.cs",
+              "dest": "api/NodeGraph"
+            },
+            {
+              "src": "../src/Core/Operators/**.cs",
+              "dest": "api/Operators"
+            },
+            {
+              "src": "../src/Core/Performance/**.cs",
+              "dest": "api/Performance"
+            }
+          ],
+          "monikerPath": [
+            "mrefcore"
+          ],
+          "raw": [
+            {
+              "files": [ "**/*.cs" ],
+              "exclude": [ "**/bin/**", "**/obj/**" ]
+            }
+          ],
+          "filter": "filterConfig.yml"
+        },
+        "dest": "TiXL.Core"
+      }
+    ],
+    "msbuild": {
+      "restore": true,
+      "build": true,
+      "rebuild": true,
+      "_tag": "<package_version>",
+      "_target": "**/*.csproj"
+    }
+  },
+  "themes": [
+    {
+      "name": "default"
+    }
+  ]
+}

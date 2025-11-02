@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using SharpDX;
-using SharpDX.Direct3D12;
+using Vortice.Direct3D12;
 
 namespace TiXL.Core.Graphics
 {
@@ -233,8 +232,8 @@ namespace TiXL.Core.Graphics
         public MaterialDepthMode DepthMode { get; set; } = MaterialDepthMode.Default;
         public MaterialRasterizerMode RasterizerMode { get; set; } = MaterialRasterizerMode.Default;
         public PrimitiveTopologyType PrimitiveTopology { get; set; } = PrimitiveTopologyType.Triangle;
-        public SharpDX.DXGI.Format RTVFormat { get; set; } = SharpDX.DXGI.Format.R8G8B8A8_UNorm;
-        public SharpDX.DXGI.Format DSVFormat { get; set; } = SharpDX.DXGI.Format.D24_UNorm_S8_UInt;
+        public Vortice.DXGI.Format RTVFormat { get; set; } = Vortice.DXGI.Format.R8G8B8A8_UNorm;
+        public Vortice.DXGI.Format DSVFormat { get; set; } = Vortice.DXGI.Format.D24_UNorm_S8_UInt;
         public SampleDescription SampleDescription { get; set; } = new SampleDescription(1, 0);
         
         public MaterialDescription()

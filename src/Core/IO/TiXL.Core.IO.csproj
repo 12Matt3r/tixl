@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Performance\TiXL.Core.Performance.csproj" />
+    <ProjectReference Include="..\Validation\TiXL.Core.Validation.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,8 +26,21 @@
 
   <ItemGroup>
     <Folder Include="Examples\" />
+    <Folder Include="Tests\" />
     <Folder Include="Security\" />
     <Folder Include="Monitoring\" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Examples\IOThreadIsolationExamples.cs" />
+    <Compile Include="Tests\IOThreadIsolationVerification.cs" />
+    <Compile Include="AsyncFileOperations.cs" />
+    <Compile Include="FileIOHandler.cs" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup>
 
 </Project>

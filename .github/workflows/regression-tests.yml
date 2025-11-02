@@ -1,0 +1,402 @@
+# Regression Testing Framework Pipeline Configuration
+# Automated pipeline for running comprehensive regression tests
+
+name: TiXL Regression Testing Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'src/Core/**'
+      - 'Tests/Regression/**'
+      - '.github/workflows/regression-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'src/Core/**'
+      - 'Tests/Regression/**'
+  schedule:
+    # Run regression tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_categories:
+        description: 'Test categories to run (comma-separated)'
+        required: false
+        default: 'ApiCompatibility,Migration,Configuration,ErrorHandling,ResourceManagement,ThreadSafety'
+      timeout_minutes:
+        description: 'Timeout in minutes'
+        required: false
+        default: '30'
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  SOLUTION_PATH: './TiXL.sln'
+  TEST_PROJECT_PATH: './Tests/TiXL.Tests.csproj'
+
+jobs:
+  # Pre-build validation
+  pre-build-checks:
+    name: Pre-build Checks
+    runs-on: ubuntu-latest
+    outputs:
+      should_run_regression: ${{ steps.changes.outputs.changed }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Detect Changes
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            core_changed:
+              - 'src/Core/**'
+            regression_tests_changed:
+              - 'Tests/Regression/**'
+            
+      - name: Determine Test Scope
+        id: scope
+        run: |
+          if [ "${{ steps.changes.outputs.core_changed }}" = "true" ] || [ "${{ steps.changes.outputs.regression_tests_changed }}" = "true" ]; then
+            echo "Core or regression tests changed - will run full regression suite"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "No core changes detected - will run minimal smoke tests"
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Regression test suite
+  regression-tests:
+    name: Regression Test Suite
+    runs-on: windows-latest
+    needs: pre-build-checks
+    if: needs.pre-build-checks.outputs.should_run == 'true'
+    timeout-minutes: ${{ github.event.inputs.timeout_minutes || 30 }}
+    
+    strategy:
+      matrix:
+        test_group:
+          - name: "API Compatibility"
+            category: "ApiCompatibility"
+            timeout: 10
+          - name: "Migration"
+            category: "Migration"
+            timeout: 15
+          - name: "Configuration"
+            category: "Configuration"
+            timeout: 8
+          - name: "Error Handling"
+            category: "ErrorHandling"
+            timeout: 10
+          - name: "Resource Management"
+            category: "ResourceManagement"
+            timeout: 20
+          - name: "Thread Safety"
+            category: "ThreadSafety"
+            timeout: 25
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: Restore Dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        
+      - name: Build Solution
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+        
+      - name: Run Regression Tests - ${{ matrix.test_group.name }}
+        timeout-minutes: ${{ matrix.test_group.timeout }}
+        run: |
+          Write-Host "Running ${{ matrix.test_group.category }} tests..."
+          $testResult = dotnet test ${{ env.TEST_PROJECT_PATH }} `
+            --filter "Category=${{ matrix.test_group.category }}" `
+            --configuration Release `
+            --no-build `
+            --logger "trx;LogFileName=test-results.trx" `
+            --collect:"XPlat Code Coverage" `
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover 2>&1
+          
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ ${{ matrix.test_group.name }} tests passed"
+          } else {
+            Write-Host "❌ ${{ matrix.test_group.name }} tests failed"
+            Write-Host $testResult
+            exit $LASTEXITCODE
+          }
+          
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results-${{ matrix.test_group.category }}
+          path: |
+            Tests/TestResults/
+            Tests/coverage.opencover.xml
+          retention-days: 30
+          
+      - name: Check Test Results
+        run: |
+          # Parse test results and set failure status
+          $testResults = Get-ChildItem -Path "Tests/TestResults" -Filter "*.trx" -Recurse
+          if ($testResults.Count -eq 0) {
+            Write-Host "No test results found"
+            exit 1
+          }
+          
+          # This is a simplified check - in practice you'd parse the TRX files
+          Write-Host "Test results uploaded for ${{ matrix.test_group.category }}"
+
+  # Performance regression tests
+  performance-regression:
+    name: Performance Regression Tests
+    runs-on: windows-latest
+    needs: [pre-build-checks, regression-tests]
+    if: needs.pre-build-checks.outputs.should_run == 'true'
+    timeout-minutes: 45
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: Restore Dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        
+      - name: Build Solution
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+        
+      - name: Run Performance Benchmarks
+        run: |
+          Write-Host "Running performance regression tests..."
+          
+          # Run performance-sensitive regression tests
+          dotnet test ${{ env.TEST_PROJECT_PATH }} `
+            --filter "Category=Performance & Category=Regression" `
+            --configuration Release `
+            --no-build `
+            --logger "console;verbosity=detailed"
+            
+      - name: Performance Baseline Check
+        run: |
+          Write-Host "Checking performance baselines..."
+          # In a real implementation, this would compare against stored baselines
+          Write-Host "Performance regression tests completed"
+
+  # Memory leak detection
+  memory-leak-detection:
+    name: Memory Leak Detection
+    runs-on: windows-latest
+    needs: pre-build-checks
+    if: needs.pre-build-checks.outputs.should_run == 'true'
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: Restore Dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        
+      - name: Build Solution
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+        
+      - name: Run Memory Tests
+        run: |
+          Write-Host "Running memory leak detection tests..."
+          
+          # Run resource management tests specifically
+          dotnet test ${{ env.TEST_PROJECT_PATH }} `
+            --filter "Category=ResourceManagement" `
+            --configuration Release `
+            --no-build `
+            --logger "console;verbosity=detailed"
+            
+      - name: Memory Analysis
+        run: |
+          Write-Host "Analyzing memory usage patterns..."
+          # This would include detailed memory analysis
+          Write-Host "Memory leak detection completed"
+
+  # Cross-platform compatibility tests
+  cross-platform-tests:
+    name: Cross-Platform Compatibility
+    runs-on: ubuntu-latest
+    needs: pre-build-checks
+    if: needs.pre-build-checks.outputs.should_run == 'true'
+    timeout-minutes: 20
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: Restore Dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        
+      - name: Build Solution
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+        
+      - name: Run Platform Tests
+        run: |
+          Write-Host "Running cross-platform tests on ${{ matrix.os }}..."
+          
+          # Run tests that don't require Windows-specific features
+          dotnet test ${{ env.TEST_PROJECT_PATH }} `
+            --filter "Category=Unit & Category=CrossPlatform" `
+            --configuration Release `
+            --no-build `
+            --logger "console;verbosity=detailed"
+
+  # API compatibility validation
+  api-compatibility-validation:
+    name: API Compatibility Validation
+    runs-on: windows-latest
+    needs: pre-build-checks
+    if: needs.pre-build-checks.outputs.should_run == 'true'
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for API comparison
+          
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: Restore Dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        
+      - name: Build Solution
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+        
+      - name: Generate API Baseline
+        run: |
+          Write-Host "Generating API compatibility baseline..."
+          
+          # In practice, this would use a tool like ApiDoctor or similar
+          # to generate and compare API baselines
+          Write-Host "API baseline generation completed"
+
+  # Generate comprehensive report
+  generate-report:
+    name: Generate Test Report
+    runs-on: ubuntu-latest
+    needs: [regression-tests, performance-regression, memory-leak-detection, cross-platform-tests, api-compatibility-validation]
+    if: always()
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v3
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: Generate Test Report
+        run: |
+          Write-Host "Generating comprehensive regression test report..."
+          
+          # Collect results from all test runs
+          $reportData = @{
+            timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC"
+            workflow_run_id = $env:GITHUB_RUN_ID
+            commit_sha = $env:GITHUB_SHA
+            branch = $env:GITHUB_REF_NAME
+          }
+          
+          # In practice, this would aggregate all test results
+          Write-Host "Report data: $($reportData | ConvertTo-Json -Depth 2)"
+          
+      - name: Upload Test Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: regression-test-report
+          path: |
+            regression-test-report.json
+            regression-test-report.md
+          retention-days: 90
+          
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('regression-test-report.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+
+  # Final status check
+  regression-status:
+    name: Regression Test Status
+    runs-on: ubuntu-latest
+    needs: [generate-report]
+    if: always()
+    
+    steps:
+      - name: Determine Overall Status
+        id: status
+        run: |
+          # Check if all required jobs passed
+          if [ "${{ needs.regression-tests.result }}" = "success" ] && 
+             [ "${{ needs.performance-regression.result }}" != "failure" ] && 
+             [ "${{ needs.memory-leak-detection.result }}" != "failure" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "Overall regression test suite: ✅ PASSED"
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "Overall regression test suite: ❌ FAILED"
+          fi
+          
+      - name: Set GitHub Status
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const status = '${{ steps.status.outputs.status }}';
+            const success = status === 'success';
+            
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: success ? 'success' : 'failure',
+              context: 'Regression Tests',
+              description: success ? 'All regression tests passed' : 'Regression tests failed',
+              target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+            });

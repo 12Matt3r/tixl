@@ -1,0 +1,141 @@
+<Project>
+  <PropertyGroup>
+    <!-- Enable all analyzers by default -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    
+    <!-- Include all output types in analysis -->
+    <IncludeExtrasInAnalysis>true</IncludeExtrasInAnalysis>
+    
+    <!-- Performance optimizations for analyzer execution -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <AnalysisLocationMode>Default</AnalysisLocationMode>
+  </PropertyGroup>
+
+  <!-- Global Analyzer Settings -->
+  <ItemGroup>
+    <!-- Microsoft Code Analysis Analyzers -->
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Code Style Analyzers -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeStyle" Version="4.8.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzers" Version="4.8.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces.MSBuild" Version="4.8.0" PrivateAssets="All" />
+    
+    <!-- Security Code Scan -->
+    <PackageReference Include="SecurityCodeScan.VS2019" Version="5.6.7" PrivateAssets="All" />
+    <PackageReference Include="SecurityCodeScan" Version="5.6.0" PrivateAssets="All" />
+    
+    <!-- Sonar Analyzer -->
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="9.22.0.88709" PrivateAssets="All" />
+    <PackageReference Include="SonarAnalyzer.SecurityCodeScan" Version="9.22.0.88709" PrivateAssets="All" />
+    
+    <!-- StyleCop Analyzers for consistent code formatting -->
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.507" PrivateAssets="All" />
+    
+    <!-- Performance Analyzers -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Generators" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Dependency Injection Analyzers -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Code Quality Analyzers -->
+    <PackageReference Include="Meziantou.Analyzer" Version="2.0.136" PrivateAssets="All" />
+    <PackageReference Include="NoxThemes.Analyzer" Version="1.0.6" PrivateAssets="All" />
+    <PackageReference Include="Roslynator.CSharp" Version="4.7.0" PrivateAssets="All" />
+    <PackageReference Include="Roslynator.Formatting.CSharp" Version="4.7.0" PrivateAssets="All" />
+    
+    <!-- Test and Design Analyzers -->
+    <PackageReference Include="Microsoft.TestPlatform.Utilities" Version="17.8.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.TestSdk.Utilities" Version="17.8.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.DotNet.Analyzers.Compatibility" Version="0.6.0" PrivateAssets="All" />
+    
+    <!-- Architecture and Design Pattern Analyzers -->
+    <PackageReference Include="Asyncify" Version="2.1.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Recognizers.Text" Version="1.3.2" PrivateAssets="All" />
+    
+    <!-- Documentation and Comment Analyzers -->
+    <PackageReference Include="Docfx.Commands" Version="2.74.0" PrivateAssets="All" />
+    <PackageReference Include="Docfx.MarkdigExtensions" Version="2.74.0" PrivateAssets="All" />
+    
+    <!-- Additional Performance Analyzers -->
+    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.13.12" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.Options.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Serialization Analyzers -->
+    <PackageReference Include="System.Text.Json.SourceGeneration" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="System.Net.Http.Json.SourceGeneration" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe.Analyzers" Version="6.0.0" PrivateAssets="All" />
+    
+    <!-- Threading and Concurrency Analyzers -->
+    <PackageReference Include="System.Threading.Channels.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="System.Threading.Tasks.Dataflow.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Cloud and Distributed Systems Analyzers -->
+    <PackageReference Include="Azure.Core.Analyzers" Version="1.39.0" PrivateAssets="All" />
+    <PackageReference Include="Azure.ResourceManager.Compute.Analyzers" Version="1.2.0" PrivateAssets="All" />
+    <PackageReference Include="Azure.ResourceManager.Storage.Analyzers" Version="1.2.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.ServiceDiscovery.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Entity Framework Analyzers -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- DirectX and Graphics Analyzers (for TiXL graphics components) -->
+    <PackageReference Include="Vortice.DXGI" Version="2.0.0" PrivateAssets="All" />
+    <PackageReference Include="Vortice.Direct3D12" Version="2.0.0" PrivateAssets="All" />
+    <PackageReference Include="Vortice.Direct3D" Version="2.0.0" PrivateAssets="All" />
+    
+    <!-- Audio and Media Analyzers -->
+    <PackageReference Include="Vortice.XAudio2" Version="2.0.0" PrivateAssets="All" />
+    <PackageReference Include="NAudio" Version="2.2.1" PrivateAssets="All" />
+    <PackageReference Include="Vortice.MediaFoundation" Version="2.0.0" PrivateAssets="All" />
+    
+    <!-- Interoperability Analyzers -->
+    <PackageReference Include="Microsoft.Interop.WindowsRuntime" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Interop.DirectWrite" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Interop.Libraries" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Memory and Garbage Collection Analyzers -->
+    <PackageReference Include="Microsoft.Extensions.ObjectPool.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Cryptography and Security Analyzers -->
+    <PackageReference Include="System.Security.Cryptography.Algorithms.Analyzers" Version="4.3.0" PrivateAssets="All" />
+    <PackageReference Include="System.Security.Cryptography.Cng.Analyzers" Version="4.3.0" PrivateAssets="All" />
+    <PackageReference Include="System.Security.Cryptography.OpenSsl.Analyzers" Version="4.3.0" PrivateAssets="All" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="System.Security.Cryptography.X509Certificates.Analyzers" Version="4.3.0" PrivateAssets="All" />
+    <PackageReference Include="System.Text.Encodings.Web.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="System.Text.Json.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Networking and HTTP Analyzers -->
+    <PackageReference Include="System.Net.Http.Json.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.Http.Analyzers" Version="8.0.0" PrivateAssets="All" />
+    
+    <!-- Testing Analyzers -->
+    <PackageReference Include="Microsoft.TestFramework.Utilities" Version="17.8.0" PrivateAssets="All" />
+    <PackageReference Include="xunit.analyzers" Version="1.9.0" PrivateAssets="All" />
+    <PackageReference Include="Xunit.Analyzers" Version="1.9.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.VisualStudio.TestPlatform.ObjectModel" Version="17.8.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- Analyzer Suppressions for Known Issues -->
+  <ItemGroup>
+    <!-- Global suppressions for analyzers that may have false positives -->
+    <PackageReference Include="Microsoft.AnalyzerPowerPack" Version="1.1.3" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- Legacy Code Support -->
+  <ItemGroup>
+    <!-- For compatibility with legacy codebases -->
+    <PackageReference Include="Microsoft.WindowsSdk.ContractReaders" Version="10.0.22621.2" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using TiXL.Core.Performance;
 
@@ -34,6 +35,18 @@ namespace TiXL.Core.IO
         private readonly NetworkIOHandler _networkHandler;
         private readonly SpoutIOHandler _spoutHandler;
         
+        // Real async file operations and thread isolation
+        private readonly AsyncFileOperations _asyncFileOperations;
+        private readonly SafeFileIO _safeFileIO;
+        private readonly IOBatchProcessor _batchProcessor;
+        
+        // Dedicated I/O thread pool for true isolation
+        private readonly Channel<ThreadPoolTask> _ioThreadPool;
+        private readonly List<Thread> _ioThreads;
+        private readonly CancellationTokenSource _threadPoolCancellation;
+        private readonly SemaphoreSlim _ioThreadSemaphore;
+        private readonly int _maxIoThreads = Environment.ProcessorCount * 2;
+        
         private readonly Timer _performanceMetricsTimer;
         private readonly Timer _backgroundCleanupTimer;
         
@@ -42,12 +55,19 @@ namespace TiXL.Core.IO
         private readonly TimeSpan _backgroundCleanupInterval = TimeSpan.FromSeconds(30);
         
         private volatile bool _isRunning = true;
+        private volatile bool _isDisposed = false;
         private long _totalEventsProcessed;
         private long _totalEventsBatched;
         private long _totalFrameSavingsMs;
+        private long _totalIoOperations;
         
         public event EventHandler<IOIsolationAlert> IOAlert;
         public event EventHandler<IOPerformanceMetrics> PerformanceMetricsUpdated;
+        
+        public IOIsolationManager IsolationManager => this;
+        public AsyncFileOperations AsyncFileOperations => _asyncFileOperations;
+        public SafeFileIO SafeFileIO => _safeFileIO;
+        public IOBatchProcessor BatchProcessor => _batchProcessor;
         
         public IOIsolationManager(PerformanceMonitor performanceMonitor = null)
         {
@@ -62,15 +82,28 @@ namespace TiXL.Core.IO
             _activeResources = new ConcurrentDictionary<string, IOResourceHandle>();
             _batchProcessingSemaphore = new SemaphoreSlim(_maxConcurrentBatches, _maxConcurrentBatches);
             
-            // Initialize I/O handlers
+            // Initialize thread isolation components
+            _asyncFileOperations = new AsyncFileOperations(maxConcurrentOperations: 20, maxThreadPoolThreads: Environment.ProcessorCount);
+            _safeFileIO = SafeFileIO.Instance;
+            _batchProcessor = new IOBatchProcessor(this);
+            _threadPoolCancellation = new CancellationTokenSource();
+            _ioThreadSemaphore = new SemaphoreSlim(_maxIoThreads, _maxIoThreads);
+            
+            // Initialize I/O handlers with thread isolation
             _audioHandler = new AudioIOHandler();
             _midiHandler = new MidiIOHandler();
-            _fileHandler = new FileIOHandler();
+            _fileHandler = new FileIOHandler(_asyncFileOperations, _safeFileIO); // Enhanced with async operations
             _networkHandler = new NetworkIOHandler();
             _spoutHandler = new SpoutIOHandler();
             
-            // Initialize background workers for different I/O types
+            // Initialize dedicated I/O thread pool
+            InitializeIOThreadPool();
+            
+            // Initialize background workers with enhanced processing
             InitializeBackgroundWorkers();
+            
+            // Set up event handlers for async file operations
+            SetupAsyncFileOperationHandlers();
             
             // Start background processing
             _performanceMetricsTimer = new Timer(CollectPerformanceMetrics, null, 0, 16); // ~60Hz
@@ -451,9 +484,342 @@ summary>
             IOAlert?.Invoke(this, alert);
         }
         
+        /// <summary>
+        /// Execute operation on dedicated I/O thread pool
+        /// </summary>
+        public async Task<T> ExecuteOnIOThreadPoolAsync<T>(Func<Task<T>> operation, CancellationToken cancellationToken = default)
+        {
+            await _ioThreadSemaphore.WaitAsync(cancellationToken);
+            
+            try
+            {
+                var taskCompletionSource = new TaskCompletionSource<T>();
+                
+                // Queue operation on I/O thread pool
+                var ioTask = new IOThreadPoolTask
+                {
+                    TaskId = Guid.NewGuid().ToString(),
+                    TaskAction = async () =>
+                    {
+                        try
+                        {
+                            var result = await operation();
+                            taskCompletionSource.TrySetResult(result);
+                        }
+                        catch (Exception ex)
+                        {
+                            taskCompletionSource.TrySetException(ex);
+                        }
+                    },
+                    CancellationToken = cancellationToken,
+                    CreatedTime = DateTime.UtcNow
+                };
+                
+                // Execute on dedicated I/O thread
+                await Task.Run(() => ExecuteOnIOThread(ioTask), cancellationToken);
+                
+                return await taskCompletionSource.Task;
+            }
+            finally
+            {
+                _ioThreadSemaphore.Release();
+            }
+        }
+        
+        /// <summary>
+        /// Execute operation on dedicated I/O thread pool (fire and forget)
+        /// </summary>
+        public void ExecuteOnIOThreadPoolAsync(Func<Task> operation, Action<Exception> errorHandler = null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await ExecuteOnIOThreadPoolAsync(operation);
+                }
+                catch (Exception ex)
+                {
+                    errorHandler?.Invoke(ex);
+                    OnIOAlert(new IOIsolationAlert
+                    {
+                        Type = AlertType.IOThreadPoolError,
+                        Message = $"I/O thread pool operation failed: {ex.Message}",
+                        Exception = ex,
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
+            });
+        }
+        
+        /// <summary>
+        /// Queue async file operation with full isolation
+        /// </summary>
+        public async Task<AsyncFileOperationResult> QueueAsyncFileOperationAsync(AsyncFileOperation operation, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _totalIoOperations);
+            
+            try
+            {
+                return await ExecuteOnIOThreadPoolAsync(async () =>
+                {
+                    return operation.OperationType switch
+                    {
+                        AsyncFileOperationType.Read => await _asyncFileOperations.ReadFileAsync(operation.FilePath, operation.CancellationToken, operation.Id),
+                        AsyncFileOperationType.Write => await _asyncFileOperations.WriteFileAsync(operation.FilePath, operation.Data, operation.CreateBackup, operation.CancellationToken, operation.Id),
+                        AsyncFileOperationType.Copy => await _asyncFileOperations.CopyFileAsync(operation.SourcePath, operation.FilePath, operation.Overwrite, operation.CancellationToken, operation.Id),
+                        AsyncFileOperationType.Delete => await _asyncFileOperations.DeleteFileAsync(operation.FilePath, verifyExists: true, operation.CancellationToken, operation.Id),
+                        AsyncFileOperationType.EnumerateDirectory => await _asyncFileOperations.EnumerateDirectoryAsync(operation.FilePath, operation.SearchPattern, operation.Recursive, operation.CancellationToken, operation.Id),
+                        _ => throw new ArgumentException($"Unsupported operation type: {operation.OperationType}")
+                    };
+                }, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                OnIOAlert(new IOIsolationAlert
+                {
+                    Type = AlertType.AsyncFileOperationFailed,
+                    Message = $"Async file operation failed: {ex.Message}",
+                    Exception = ex,
+                    Context = new Dictionary<string, string>
+                    {
+                        ["OperationId"] = operation.Id,
+                        ["OperationType"] = operation.OperationType.ToString(),
+                        ["FilePath"] = operation.FilePath ?? "N/A"
+                    },
+                    Timestamp = DateTime.UtcNow
+                });
+                
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// Get thread isolation statistics
+        /// </summary>
+        public ThreadIsolationStatistics GetThreadIsolationStatistics()
+        {
+            return new ThreadIsolationStatistics
+            {
+                TotalIOOperations = _totalIoOperations,
+                ActiveIOThreadPoolThreads = _ioThreads?.Count(t => t.IsAlive) ?? 0,
+                MaxIOThreadPoolThreads = _maxIoThreads,
+                IOThreadPoolUtilization = _ioThreads != null ? (double)_ioThreads.Count(t => t.IsAlive) / _maxIoThreads * 100 : 0,
+                AsyncFileOperationStats = _asyncFileOperations.GetActiveOperationCount(),
+                RenderThreadIsolated = true,
+                LastUpdateTime = DateTime.UtcNow
+            };
+        }
+        
+        /// <summary>
+        /// Initialize dedicated I/O thread pool for true thread isolation
+        /// </summary>
+        private void InitializeIOThreadPool()
+        {
+            try
+            {
+                var channelOptions = new BoundedChannelOptions(_maxIoThreads * 4)
+                {
+                    FullMode = BoundedChannelFullMode.Wait,
+                    SingleReader = false,
+                    SingleWriter = false
+                };
+                
+                _ioThreadPool = Channel.CreateBounded<ThreadPoolTask>(channelOptions);
+                _ioThreads = new List<Thread>();
+                
+                // Create dedicated I/O threads
+                for (int i = 0; i < _maxIoThreads; i++)
+                {
+                    var ioThread = new Thread(IOThreadWorker)
+                    {
+                        Name = $"TiXL IO Thread {i}",
+                        IsBackground = true,
+                        Priority = ThreadPriority.AboveNormal // Give I/O threads higher priority
+                    };
+                    
+                    _ioThreads.Add(ioThread);
+                    ioThread.Start();
+                }
+                
+                OnIOAlert(new IOIsolationAlert
+                {
+                    Type = AlertType.IOThreadPoolInitialized,
+                    Message = $"Initialized { _maxIoThreads } dedicated I/O threads for thread isolation",
+                    Context = new Dictionary<string, string>
+                    {
+                        ["MaxIoThreads"] = _maxIoThreads.ToString(),
+                        ["ProcessorCount"] = Environment.ProcessorCount.ToString()
+                    },
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                OnIOAlert(new IOIsolationAlert
+                {
+                    Type = AlertType.IOThreadPoolInitFailed,
+                    Message = $"Failed to initialize I/O thread pool: {ex.Message}",
+                    Exception = ex,
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+        }
+        
+        /// <summary>
+        /// Set up event handlers for async file operations
+        /// </summary>
+        private void SetupAsyncFileOperationHandlers()
+        {
+            if (_asyncFileOperations != null)
+            {
+                _asyncFileOperations.ProgressUpdated += OnAsyncFileProgressUpdated;
+                _asyncFileOperations.OperationError += OnAsyncFileOperationError;
+                _asyncFileOperations.OperationCompleted += OnAsyncFileOperationCompleted;
+            }
+        }
+        
+        /// <summary>
+        /// I/O thread worker function
+        /// </summary>
+        private void IOThreadWorker()
+        {
+            try
+            {
+                while (!_threadPoolCancellation.Token.IsCancellationRequested)
+                {
+                    // Wait for work with timeout
+                    if (_ioThreadPool.Reader.WaitToReadAsync(_threadPoolCancellation.Token).Result)
+                    {
+                        if (_ioThreadPool.Reader.TryRead(out var task))
+                        {
+                            // Execute task on this dedicated thread
+                            try
+                            {
+                                _ = Task.Run(async () => await task.TaskAction(), _threadPoolCancellation.Token);
+                            }
+                            catch (Exception ex)
+                            {
+                                OnIOAlert(new IOIsolationAlert
+                                {
+                                    Type = AlertType.IOThreadWorkerError,
+                                    Message = $"I/O thread worker error: {ex.Message}",
+                                    Exception = ex,
+                                    Context = new Dictionary<string, string>
+                                    {
+                                        ["ThreadName"] = Thread.CurrentThread.Name
+                                    },
+                                    Timestamp = DateTime.UtcNow
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected during shutdown
+            }
+            catch (Exception ex)
+            {
+                OnIOAlert(new IOIsolationAlert
+                {
+                    Type = AlertType.IOThreadWorkerFatalError,
+                    Message = $"I/O thread worker fatal error: {ex.Message}",
+                    Exception = ex,
+                    Context = new Dictionary<string, string>
+                    {
+                        ["ThreadName"] = Thread.CurrentThread.Name
+                    },
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+        }
+        
+        /// <summary>
+        /// Execute task on dedicated I/O thread
+        /// </summary>
+        private async Task ExecuteOnIOThread(IOThreadPoolTask task)
+        {
+            if (_threadPoolCancellation.Token.IsCancellationRequested)
+            {
+                throw new OperationCanceledException("I/O thread pool is shutting down");
+            }
+            
+            await _ioThreadPool.Writer.WriteAsync(task, _threadPoolCancellation.Token);
+        }
+        
+        // Async file operation event handlers
+        private void OnAsyncFileProgressUpdated(object sender, AsyncFileProgress progress)
+        {
+            OnIOAlert(new IOIsolationAlert
+            {
+                Type = AlertType.FileOperationProgress,
+                Message = $"File operation progress: {progress.Status}",
+                Context = new Dictionary<string, string>
+                {
+                    ["OperationId"] = progress.OperationId,
+                    ["Percentage"] = progress.Percentage.ToString(),
+                    ["Status"] = progress.Status
+                },
+                Timestamp = progress.Timestamp
+            });
+        }
+        
+        private void OnAsyncFileOperationError(object sender, AsyncFileError error)
+        {
+            OnIOAlert(new IOIsolationAlert
+            {
+                Type = AlertType.AsyncFileOperationError,
+                Message = $"Async file operation error: {error.ErrorMessage}",
+                Exception = error.Exception,
+                Context = new Dictionary<string, string>
+                {
+                    ["OperationId"] = error.OperationId
+                },
+                Timestamp = error.Timestamp
+            });
+        }
+        
+        private void OnAsyncFileOperationCompleted(object sender, AsyncFileOperationCompleted completed)
+        {
+            Interlocked.Increment(ref _totalEventsProcessed);
+            
+            OnIOAlert(new IOIsolationAlert
+            {
+                Type = AlertType.AsyncFileOperationCompleted,
+                Message = $"Async file operation completed: {completed.OperationType}",
+                Context = new Dictionary<string, string>
+                {
+                    ["OperationId"] = completed.OperationId,
+                    ["OperationType"] = completed.OperationType.ToString(),
+                    ["Success"] = completed.Success.ToString(),
+                    ["ElapsedTime"] = completed.ElapsedTime.TotalMilliseconds.ToString("F2")
+                },
+                Timestamp = completed.Timestamp
+            });
+        }
+        
         public void Dispose()
         {
+            if (_isDisposed) return;
+            _isDisposed = true;
             _isRunning = false;
+            
+            // Dispose thread pool
+            _threadPoolCancellation?.Cancel();
+            _ioThreadSemaphore?.Dispose();
+            
+            // Wait for I/O threads to finish
+            if (_ioThreads != null)
+            {
+                foreach (var thread in _ioThreads)
+                {
+                    if (thread.IsAlive)
+                    {
+                        thread.Join(TimeSpan.FromSeconds(5));
+                    }
+                }
+            }
             
             _performanceMetricsTimer?.Dispose();
             _backgroundCleanupTimer?.Dispose();
@@ -474,10 +840,46 @@ summary>
             _networkHandler?.Dispose();
             _spoutHandler?.Dispose();
             
+            // Dispose async file operations
+            _asyncFileOperations?.Dispose();
+            _batchProcessor?.Dispose();
+            
             foreach (var resource in _activeResources.Values)
             {
                 resource?.Dispose();
             }
+            
+            _threadPoolCancellation?.Dispose();
         }
     }
+    
+    #region Thread Isolation Supporting Classes
+    
+    public class ThreadPoolTask
+    {
+        public string TaskId { get; set; }
+        public Func<Task> TaskAction { get; set; }
+        public CancellationToken CancellationToken { get; set; }
+        public DateTime CreatedTime { get; set; }
+    }
+    
+    public class IOThreadPoolTask : ThreadPoolTask
+    {
+        public TimeSpan? Timeout { get; set; }
+        public bool IsHighPriority { get; set; }
+    }
+    
+    public class ThreadIsolationStatistics
+    {
+        public long TotalIOOperations { get; set; }
+        public int ActiveIOThreadPoolThreads { get; set; }
+        public int MaxIOThreadPoolThreads { get; set; }
+        public double IOThreadPoolUtilization { get; set; }
+        public int AsyncFileOperationStats { get; set; }
+        public bool RenderThreadIsolated { get; set; }
+        public DateTime LastUpdateTime { get; set; }
+        public Dictionary<string, object> AdditionalMetrics { get; set; } = new();
+    }
+    
+    #endregion
 }

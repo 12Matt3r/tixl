@@ -73,6 +73,16 @@
     <ProjectReference Include="..\src\Core\Operators\TiXL.Core.Operators.csproj" />
     <ProjectReference Include="..\src\Core\Logging\TiXL.Core.Logging.csproj" />
     <ProjectReference Include="..\src\Core\Performance\TiXL.Core.Performance.csproj" />
+    <ProjectReference Include="..\src\Core\Graphics\DirectX12\TiXL.Core.Graphics.DirectX12.csproj" />
+    <ProjectReference Include="..\src\Core\Graphics\PSO\TiXL.Core.Graphics.PSO.csproj" />
+    <ProjectReference Include="..\src\Core\AudioVisual\TiXL.Core.AudioVisual.csproj" />
+  </ItemGroup>
+
+  <!-- DirectX 12 Dependencies for Testing -->
+  <ItemGroup>
+    <PackageReference Include="Vortice.Direct3D12" Version="2.0.0" />
+    <PackageReference Include="Vortice.DXGI" Version="2.0.0" />
+    <PackageReference Include="Vortice.Mathematics" Version="2.0.0" />
   </ItemGroup>
 
   <!-- Test Configuration Files -->

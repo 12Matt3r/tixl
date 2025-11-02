@@ -1,0 +1,237 @@
+# API Documentation Filter Configuration
+# Filters and controls what APIs are included in the generated documentation
+
+apiRules:
+- include:
+    uidRegex: ^TiXL\.Core\.
+    type: Namespace
+  description: "TiXL Core Namespace - Main entry point for all core functionality"
+  
+- include:
+    uidRegex: ^TiXL\.Core\.AudioVisual\.
+    type: Namespace
+    accessorAttributes:
+      - System.Runtime.CompilerServices.CompilerGeneratedAttribute
+  description: "Audio-Visual Processing - Real-time audio and video synchronization"
+
+- include:
+    uidRegex: ^TiXL\.Core\.Graphics\.
+    type: Namespace
+    accessorAttributes:
+      - System.Runtime.CompilerServices.CompilerGeneratedAttribute
+  description: "Graphics Rendering - DirectX 12 based graphics engine"
+
+- include:
+    uidRegex: ^TiXL\.Core\.IO\.
+    type: Namespace
+    accessorAttributes:
+      - System.Runtime.CompilerServices.CompilerGeneratedAttribute
+  description: "I/O Operations - File and stream handling utilities"
+
+- include:
+    uidRegex: ^TiXL\.Core\.Logging\.
+    type: Namespace
+    accessorAttributes:
+      - System.Runtime.CompilerServices.CompilerGeneratedAttribute
+  description: "Logging Infrastructure - Structured logging and diagnostics"
+
+- include:
+    uidRegex: ^TiXL\.Core\.NodeGraph\.
+    type: Namespace
+    accessorAttributes:
+      - System.Runtime.CompilerServices.CompilerGeneratedAttribute
+  description: "Node Graph System - Visual node-based programming interface"
+
+- include:
+    uidRegex: ^TiXL\.Core\.Operators\.
+    type: Namespace
+    accessorAttributes:
+      - System.Runtime.CompilerServices.CompilerGeneratedAttribute
+  description: "Operator System - Mathematical and signal processing operators"
+
+- include:
+    uidRegex: ^TiXL\.Core\.Performance\.
+    type: Namespace
+    accessorAttributes:
+      - System.Runtime.CompilerServices.CompilerGeneratedAttribute
+  description: "Performance Monitoring - Real-time performance metrics and profiling"
+
+# Include public APIs only
+- include:
+    type: Class
+  condition: "isPublic"
+  
+- include:
+    type: Interface  
+  condition: "isPublic"
+  
+- include:
+    type: Struct
+  condition: "isPublic"
+  
+- include:
+    type: Enum
+  condition: "isPublic"
+  
+- include:
+    type: Delegate
+  condition: "isPublic"
+  
+- include:
+    type: Field
+  condition: "isPublic"
+  
+- include:
+    type: Property
+  condition: "isPublic"
+  
+- include:
+    type: Method
+  condition: "isPublic"
+  
+- include:
+    type: Event
+  condition: "isPublic"
+
+# Exclude internal and private APIs
+- exclude:
+    type: *
+    attributes:
+      - System.Runtime.CompilerServices.InternalAttribute
+      - System.Runtime.CompilerServices.EditorBrowsableAttribute
+
+# Exclude compiler-generated code
+- exclude:
+    type: *
+    attributes:
+      - System.Runtime.CompilerServices.CompilerGeneratedAttribute
+    except:
+      type: Property
+      hasGetter: true
+      hasSetter: true
+    condition: "isPublic"
+
+# Special exclusions for performance-critical code
+- exclude:
+    type: Method
+    attributes:
+      - System.Runtime.CompilerServices.MethodImplAttribute
+    condition: "MethodImplOptions.InternalCall"
+
+# Include examples and usage code
+- include:
+    type: Method
+    derivedClasses:
+      - Microsoft.Extensions.Logging.ILogger
+    condition: "isPublic"
+
+# Include configuration classes
+- include:
+    uidRegex: ^TiXL\.Core\..*Configuration$
+    type: Class
+  description: "Configuration classes for various TiXL components"
+
+# Include extension methods
+- include:
+    type: ExtensionMethod
+  condition: "isPublic"
+
+# Exclude test-related classes
+- exclude:
+    uidRegex: ^.*Tests?$
+    type: Class
+  
+- exclude:
+    uidRegex: ^.*Test.*$
+    type: Class
+  
+- exclude:
+    uidRegex: ^.*Mock.*$
+    type: Class
+
+# Exclude benchmark and performance test classes
+- exclude:
+    uidRegex: ^.*Benchmark.*$
+    type: Class
+  
+- exclude:
+    uidRegex: ^.*PerformanceTest.*$
+    type: Class
+
+# Include event arguments and data classes
+- include:
+    uidRegex: ^.*EventArgs$
+    type: Class
+    condition: "isPublic"
+  
+- include:
+    uidRegex: ^.*Data$
+    type: Class
+    condition: "isPublic"
+
+# Special handling for graphics-related types
+- include:
+    type: Struct
+    uidRegex: ^TiXL\.Graphics\..*Vector.*$
+  
+- include:
+    type: Struct
+    uidRegex: ^TiXL\.Graphics\..*Matrix.*$
+  
+- include:
+    type: Struct
+    uidRegex: ^TiXL\.Graphics\..*Color.*$
+
+# Include audio-related types
+- include:
+    type: Enum
+    uidRegex: ^TiXL\.Audio\..*Format.*$
+  
+- include:
+    type: Class
+    uidRegex: ^TiXL\.Audio\..*Buffer.*$
+
+# Documentation generation rules
+documentationRules:
+  # Generate documentation for all public APIs
+  generateDocumentationFile: true
+  
+  # Include XML documentation comments
+  includeXmlDocumentation: true
+  
+  # Include code examples
+  includeCodeExamples: true
+  
+  # Include inheritance diagrams
+  includeInheritanceDiagrams: true
+  
+  # Include call graphs for complex methods
+  includeCallGraphs: true
+
+# Performance considerations for large APIs
+performance:
+  # Enable parallel processing for multiple projects
+  enableParallelProcessing: true
+  
+  # Use incremental build to speed up subsequent runs
+  enableIncrementalBuild: true
+  
+  # Cache intermediate results
+  enableCaching: true
+  
+  # Limit concurrent documentation generation
+  maxConcurrentProjects: 4
+
+# Custom attributes for documentation
+attributeRules:
+  # Include Obsolete API warnings
+  includeObsoleteWarnings: true
+  
+  # Include security notes
+  includeSecurityNotes: true
+  
+  # Include performance notes
+  includePerformanceNotes: true
+  
+  # Include thread safety information
+  includeThreadSafetyNotes: true

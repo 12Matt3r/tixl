@@ -144,7 +144,7 @@ namespace TiXL.Editor.Core.Commands
         /// <summary>
         /// Maximum number of recent commands to track
         /// </summary>
-        private const int MaxRecentCommands = 50;
+        private const int MAX_RECENT_COMMANDS = 50;
 
         public event EventHandler<CommandRegisteredEventArgs>? CommandRegistered;
         public event EventHandler<CommandUnregisteredEventArgs>? CommandUnregistered;
@@ -278,7 +278,7 @@ namespace TiXL.Editor.Core.Commands
                 _recentCommands.Insert(0, registered.Definition);
 
                 // Trim to maximum size
-                while (_recentCommands.Count > MaxRecentCommands)
+                while (_recentCommands.Count > MAX_RECENT_COMMANDS)
                 {
                     _recentCommands.RemoveAt(_recentCommands.Count - 1);
                 }

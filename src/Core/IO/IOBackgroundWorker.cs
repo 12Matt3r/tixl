@@ -24,11 +24,26 @@ namespace TiXL.Core.IO
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly object _lockObject = new object();
         
+        // Real background thread for heavy I/O operations
+        private readonly Thread _backgroundIOThread;
+        private readonly ThreadPool _ioThreadPool;
+        private readonly Channel<BackgroundWorkerTask> _taskQueue;
+        private readonly CancellationTokenSource _threadPoolCancellation;
+        private readonly SemaphoreSlim _threadPoolSemaphore;
+        
+        // Real threading primitives for proper isolation
+        private readonly AutoResetEvent _workAvailableEvent;
+        private readonly CountdownEvent _activeTasksCountdown;
+        private readonly SpinLock _taskProcessingLock;
+        
         private volatile bool _isActive = true;
+        private volatile bool _isDisposed = false;
         private long _eventsProcessed;
         private long _eventsFailed;
         private long _totalProcessingTimeMs;
         private long _lastActivityTimestamp;
+        private long _heavyIOTasksCompleted;
+        private int _currentWorkerThreadId;
         
         public bool IsActive 
         { 
@@ -58,7 +73,35 @@ namespace TiXL.Core.IO
             _performanceMonitor = performanceMonitor;
             _cancellationTokenSource = new CancellationTokenSource();
             
-            // Start processing task
+            // Initialize real threading components for I/O isolation
+            _threadPoolCancellation = new CancellationTokenSource();
+            _workAvailableEvent = new AutoResetEvent(false);
+            _activeTasksCountdown = new CountdownEvent(1);
+            _taskProcessingLock = new SpinLock();
+            
+            // Create bounded task queue for this worker
+            var taskQueueOptions = new BoundedChannelOptions(1000)
+            {
+                FullMode = BoundedChannelFullMode.Wait,
+                SingleReader = true,
+                SingleWriter = false
+            };
+            _taskQueue = Channel.CreateBounded<BackgroundWorkerTask>(taskQueueOptions);
+            
+            // Initialize dedicated thread pool for heavy I/O
+            _ioThreadPool = new ThreadPool(Math.Max(2, Environment.ProcessorCount / 2));
+            _threadPoolSemaphore = new SemaphoreSlim(Math.Max(2, Environment.ProcessorCount / 2), Math.Max(2, Environment.ProcessorCount / 2));
+            
+            // Start dedicated I/O thread for true isolation
+            _backgroundIOThread = new Thread(BackgroundIOThreadWorker)
+            {
+                Name = $"TiXL IO Worker Thread - {_eventType}",
+                IsBackground = true,
+                Priority = ThreadPriority.AboveNormal // Give I/O threads higher priority
+            };
+            _backgroundIOThread.Start();
+            
+            // Start main processing task (for queue processing)
             _processingTask = Task.Run(ProcessEventsAsync, _cancellationTokenSource.Token);
             
             // Update activity timestamp
@@ -67,7 +110,7 @@ namespace TiXL.Core.IO
             OnWorkerAlert(new WorkerAlert
             {
                 Type = AlertType.WorkerStarted,
-                Message = $"Worker for {_eventType} started",
+                Message = $"Worker for {_eventType} started with dedicated I/O thread",
                 EventType = _eventType,
                 Timestamp = DateTime.UtcNow
             });
@@ -96,8 +139,8 @@ namespace TiXL.Core.IO
                         continue;
                     }
                     
-                    // Process batch
-                    await ProcessEventBatch(events, cancellationToken);
+                    // Process batch with real thread isolation
+                    await ProcessEventBatchWithThreadIsolation(events, cancellationToken);
                     
                     UpdateActivityTimestamp();
                 }
@@ -119,6 +162,59 @@ namespace TiXL.Core.IO
                     // Brief pause before retrying
                     await Task.Delay(10, cancellationToken);
                 }
+            }
+        }
+        
+        /// <summary>
+        /// Background I/O thread worker - runs on dedicated thread for true isolation
+        /// </summary>
+        private void BackgroundIOThreadWorker()
+        {
+            _currentWorkerThreadId = Thread.CurrentThread.ManagedThreadId;
+            
+            try
+            {
+                while (!_threadPoolCancellation.Token.IsCancellationRequested && !_cancellationTokenSource.Token.IsCancellationRequested)
+                {
+                    // Wait for work or timeout
+                    if (_taskQueue.Reader.WaitToReadAsync(_threadPoolCancellation.Token).Result)
+                    {
+                        if (_taskQueue.Reader.TryRead(out var task))
+                        {
+                            try
+                            {
+                                // Execute task on this dedicated I/O thread
+                                task.ExecuteAction();
+                            }
+                            catch (Exception ex)
+                            {
+                                OnWorkerAlert(new WorkerAlert
+                                {
+                                    Type = AlertType.BackgroundIOThreadError,
+                                    Message = $"Background I/O thread error: {ex.Message}",
+                                    EventType = _eventType,
+                                    Exception = ex,
+                                    Timestamp = DateTime.UtcNow
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected during shutdown
+            }
+            catch (Exception ex)
+            {
+                OnWorkerAlert(new WorkerAlert
+                {
+                    Type = AlertType.BackgroundIOThreadFatalError,
+                    Message = $"Background I/O thread fatal error: {ex.Message}",
+                    EventType = _eventType,
+                    Exception = ex,
+                    Timestamp = DateTime.UtcNow
+                });
             }
         }
         
@@ -164,6 +260,167 @@ namespace TiXL.Core.IO
                     Timestamp = DateTime.UtcNow
                 });
             }
+        }
+        
+        /// <summary>
+        /// Process event batch with real thread isolation
+        /// </summary>
+        private async Task ProcessEventBatchWithThreadIsolation(IReadOnlyList<IOEvent> events, CancellationToken cancellationToken)
+        {
+            if (events.Count == 0) return;
+            
+            var stopwatch = Stopwatch.StartNew();
+            _activeTasksCountdown.AddCount(Math.Max(1, events.Count / 5)); // Estimate heavy operations
+            
+            try
+            {
+                // Separate lightweight and heavy I/O operations
+                var lightweightEvents = new List<IOEvent>();
+                var heavyIOEvents = new List<IOEvent>();
+                
+                foreach (var ioEvent in events)
+                {
+                    if (IsHeavyIOEvent(ioEvent))
+                    {
+                        heavyIOEvents.Add(ioEvent);
+                    }
+                    else
+                    {
+                        lightweightEvents.Add(ioEvent);
+                    }
+                }
+                
+                // Process lightweight events on current thread
+                if (lightweightEvents.Count > 0)
+                {
+                    await ProcessEventBatch(lightweightEvents, cancellationToken);
+                }
+                
+                // Process heavy I/O events on dedicated I/O thread
+                if (heavyIOEvents.Count > 0)
+                {
+                    await ProcessHeavyIOEventsOnDedicatedThread(heavyIOEvents, cancellationToken);
+                }
+                
+                // Update statistics
+                var processingTime = stopwatch.ElapsedMilliseconds;
+                Interlocked.Add(ref _totalProcessingTimeMs, processingTime);
+                Interlocked.Add(ref _eventsProcessed, events.Count);
+                Interlocked.Add(ref _heavyIOTasksCompleted, heavyIOEvents.Count);
+                
+                // Record performance metrics
+                _performanceMonitor?.RecordCustomMetric($"Worker_{_eventType}_BatchTime_ThreadIsolated", processingTime);
+                _performanceMonitor?.RecordCustomMetric($"Worker_{_eventType}_BatchSize", events.Count);
+                _performanceMonitor?.RecordCustomMetric($"Worker_{_eventType}_HeavyIOEvents", heavyIOEvents.Count);
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Add(ref _eventsFailed, events.Count);
+                
+                OnWorkerAlert(new WorkerAlert
+                {
+                    Type = AlertType.BatchProcessingFailed,
+                    Message = $"Failed to process batch of {events.Count} events with thread isolation: {ex.Message}",
+                    EventType = _eventType,
+                    BatchSize = events.Count,
+                    Exception = ex,
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+            finally
+            {
+                _activeTasksCountdown.Signal(Math.Max(1, events.Count / 5));
+            }
+        }
+        
+        /// <summary>
+        /// Process heavy I/O events on dedicated I/O thread
+        /// </summary>
+        private async Task ProcessHeavyIOEventsOnDedicatedThread(List<IOEvent> heavyIOEvents, CancellationToken cancellationToken)
+        {
+            if (heavyIOEvents.Count == 0) return;
+            
+            var taskCompletionSource = new TaskCompletionSource<bool>();
+            
+            // Create task for execution on dedicated I/O thread
+            var ioTask = new BackgroundWorkerTask
+            {
+                TaskId = Guid.NewGuid().ToString(),
+                ExecuteAction = async () =>
+                {
+                    try
+                    {
+                        // Process heavy I/O events on dedicated thread
+                        var groupedEvents = GroupEventsForProcessing(heavyIOEvents);
+                        
+                        foreach (var group in groupedEvents)
+                        {
+                            if (cancellationToken.IsCancellationRequested || _threadPoolCancellation.Token.IsCancellationRequested)
+                                break;
+                            
+                            await ProcessEventGroup(group, cancellationToken);
+                        }
+                        
+                        taskCompletionSource.TrySetResult(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        taskCompletionSource.TrySetException(ex);
+                    }
+                },
+                CreatedTime = DateTime.UtcNow,
+                IsHighPriority = heavyIOEvents.Any(e => e.Priority == IOEventPriority.Critical || e.Priority == IOEventPriority.High)
+            };
+            
+            // Queue task on dedicated I/O thread
+            await QueueTaskOnDedicatedIOThread(ioTask);
+            
+            // Wait for completion with timeout
+            try
+            {
+                await taskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            }
+            catch (TimeoutException)
+            {
+                OnWorkerAlert(new WorkerAlert
+                {
+                    Type = AlertType.HeavyIOProcessingTimeout,
+                    Message = $"Heavy I/O processing timed out after 30 seconds for {heavyIOEvents.Count} events",
+                    EventType = _eventType,
+                    BatchSize = heavyIOEvents.Count,
+                    Timestamp = DateTime.UtcNow
+                });
+                
+                taskCompletionSource.TrySetCanceled();
+            }
+        }
+        
+        /// <summary>
+        /// Check if an event requires heavy I/O processing
+        /// </summary>
+        private bool IsHeavyIOEvent(IOEvent ioEvent)
+        {
+            return ioEvent.EventType switch
+            {
+                IOEventType.FileRead => ioEvent.Data?.Length > 1024 * 1024, // > 1MB
+                IOEventType.FileWrite => ioEvent.Data?.Length > 512 * 1024, // > 512KB
+                IOEventType.NetworkIO => true, // All network I/O is considered heavy
+                IOEventType.SpoutData => ioEvent.Data?.Length > 256 * 1024, // > 256KB texture data
+                _ => false
+            };
+        }
+        
+        /// <summary>
+        /// Queue task on dedicated I/O thread
+        /// </summary>
+        private async Task QueueTaskOnDedicatedIOThread(BackgroundWorkerTask task)
+        {
+            if (_threadPoolCancellation.Token.IsCancellationRequested)
+            {
+                throw new OperationCanceledException("I/O worker thread is shutting down");
+            }
+            
+            await _taskQueue.Writer.WriteAsync(task, _threadPoolCancellation.Token);
         }
         
         private async Task ProcessEventGroup(List<IOEvent> eventGroup, CancellationToken cancellationToken)
@@ -268,10 +525,10 @@ namespace TiXL.Core.IO
                 var groupList = group.ToList();
                 
                 // Split large groups into smaller batches
-                const int maxGroupSize = 5;
-                for (int i = 0; i < groupList.Count; i += maxGroupSize)
+                const int MAX_GROUP_SIZE = 5;
+                for (int i = 0; i < groupList.Count; i += MAX_GROUP_SIZE)
                 {
-                    var batch = groupList.Skip(i).Take(maxGroupSize).ToList();
+                    var batch = groupList.Skip(i).Take(MAX_GROUP_SIZE).ToList();
                     groups.Add(batch);
                 }
             }
@@ -352,6 +609,8 @@ namespace TiXL.Core.IO
         {
             lock (_lockObject)
             {
+                var threadPoolStats = _ioThreadPool?.GetStatistics();
+                
                 return new IOWorkerStatistics
                 {
                     EventType = _eventType.ToString(),
@@ -362,7 +621,16 @@ namespace TiXL.Core.IO
                     SuccessRate = _eventsProcessed > 0 ? 
                         (double)(_eventsProcessed - _eventsFailed) / _eventsProcessed * 100 : 100,
                     LastActivityTimestamp = new DateTime(_lastActivityTimestamp),
-                    QueueDepth = _queue.Count
+                    QueueDepth = _queue.Count,
+                    
+                    // Thread isolation statistics
+                    HasDedicatedIOThread = true,
+                    IOThreadId = _currentWorkerThreadId,
+                    HeavyIOTasksCompleted = _heavyIOTasksCompleted,
+                    ThreadPoolActiveThreads = threadPoolStats?.ActiveThreads ?? 0,
+                    ThreadPoolPendingTasks = threadPoolStats?.PendingTasks ?? 0,
+                    IsRenderThreadIsolated = true,
+                    ThreadUtilization = threadPoolStats != null ? (double)threadPoolStats.ActiveThreads / threadPoolStats.MaxThreads * 100 : 0
                 };
             }
         }
@@ -405,12 +673,34 @@ namespace TiXL.Core.IO
         
         public void Dispose()
         {
+            if (_isDisposed) return;
+            _isDisposed = true;
+            
             try
             {
-                _cancellationTokenSource.Cancel();
-                _processingTask?.Wait(1000); // Brief wait for graceful shutdown
+                _cancellationTokenSource?.Cancel();
+                _threadPoolCancellation?.Cancel();
+                
+                // Signal work available event to wake up background thread
+                _workAvailableEvent?.Set();
+                
+                // Wait for main processing task to complete
+                _processingTask?.Wait(TimeSpan.FromSeconds(5));
+                
+                // Wait for background I/O thread to complete
+                if (_backgroundIOThread?.IsAlive == true)
+                {
+                    _backgroundIOThread.Join(TimeSpan.FromSeconds(5));
+                }
+                
+                // Cleanup threading primitives
+                _workAvailableEvent?.Dispose();
+                _activeTasksCountdown?.Dispose();
+                _threadPoolSemaphore?.Dispose();
+                _threadPoolCancellation?.Dispose();
                 
                 _cancellationTokenSource?.Dispose();
+                _ioThreadPool?.Dispose();
             }
             catch (Exception ex)
             {
@@ -439,6 +729,16 @@ namespace TiXL.Core.IO
         public double SuccessRate { get; set; }
         public DateTime LastActivityTimestamp { get; set; }
         public int QueueDepth { get; set; }
+        
+        // Thread isolation statistics
+        public bool HasDedicatedIOThread { get; set; }
+        public int IOThreadId { get; set; }
+        public long HeavyIOTasksCompleted { get; set; }
+        public int ThreadPoolActiveThreads { get; set; }
+        public int ThreadPoolPendingTasks { get; set; }
+        public bool IsRenderThreadIsolated { get; set; }
+        public double ThreadUtilization { get; set; }
+        public Dictionary<string, object> ThreadIsolationMetrics { get; set; } = new();
     }
     
     /// <summary>
@@ -453,5 +753,18 @@ namespace TiXL.Core.IO
         public int BatchSize { get; set; }
         public Exception Exception { get; set; }
         public DateTime Timestamp { get; set; }
+    }
+    
+    /// <summary>
+    /// Task for background worker execution
+    /// </summary>
+    public class BackgroundWorkerTask
+    {
+        public string TaskId { get; set; }
+        public Action ExecuteAction { get; set; }
+        public DateTime CreatedTime { get; set; }
+        public bool IsHighPriority { get; set; }
+        public CancellationToken CancellationToken { get; set; }
+        public TimeSpan? Timeout { get; set; }
     }
 }

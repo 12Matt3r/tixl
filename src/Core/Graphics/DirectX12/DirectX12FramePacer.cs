@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Win32.SafeHandles;
+using Vortice.Windows;
+using Vortice.Windows.Direct3D12;
 using TiXL.Core.Performance;
 
 namespace TiXL.Core.Graphics.DirectX12
@@ -16,13 +19,17 @@ namespace TiXL.Core.Graphics.DirectX12
     {
         private readonly PerformanceMonitor _performanceMonitor;
         private readonly PredictiveFrameScheduler _frameScheduler;
+        private readonly RenderingEngineConfig _config;
+        private ID3D12Device _device;
+        private ID3D12CommandQueue _commandQueue;
         
         // DirectX 12 synchronization objects
         private readonly object _fenceLock = new object();
-        private readonly Queue<ID3D12Fence> _availableFences;
+        private readonly Queue<D3D12FenceWrapper> _availableFences;
         private readonly Dictionary<ulong, FenceInfo> _pendingFences;
         private uint _nextFenceValue;
         private ulong _lastCompletedFence;
+        private readonly AutoResetEvent _fenceEvent;
         
         // Frame budget management
         private readonly object _frameBudgetLock = new object();
@@ -57,12 +64,14 @@ namespace TiXL.Core.Graphics.DirectX12
         
         public DirectX12FramePacer(
             PerformanceMonitor performanceMonitor, 
-            PredictiveFrameScheduler frameScheduler)
+            PredictiveFrameScheduler frameScheduler,
+            RenderingEngineConfig config = null)
         {
             _performanceMonitor = performanceMonitor ?? throw new ArgumentNullException(nameof(performanceMonitor));
             _frameScheduler = frameScheduler ?? throw new ArgumentNullException(nameof(frameScheduler));
+            _config = config ?? new RenderingEngineConfig();
             
-            _availableFences = new Queue<ID3D12Fence>();
+            _availableFences = new Queue<D3D12FenceWrapper>();
             _pendingFences = new Dictionary<ulong, FenceInfo>();
             _gpuTimeline = new ConcurrentQueue<GpuTimelineEntry>();
             _activeQueries = new Dictionary<string, GpuQuery>();
@@ -70,15 +79,25 @@ namespace TiXL.Core.Graphics.DirectX12
             _pendingResourceOperations = new Queue<Action>();
             
             _resourceManager = new ResourceLifecycleManager();
-            
-            // Initialize fences (in real implementation, these would be actual D3D12 fences)
-            InitializeFences();
+            _fenceEvent = new AutoResetEvent(false);
             
             // Start metrics collection
             _metricsTimer = new Timer(UpdateMetrics, null, 0, 16); // ~60Hz
             
             // Subscribe to performance alerts
             _performanceMonitor.PerformanceAlert += OnPerformanceAlert;
+        }
+        
+        /// <summary>
+        /// Initialize DirectX 12 specific components (called by DirectX12RenderingEngine)
+        /// </summary>
+        public void InitializeDirectX12Components(ID3D12Device device, ID3D12CommandQueue commandQueue)
+        {
+            _device = device ?? throw new ArgumentNullException(nameof(device));
+            _commandQueue = commandQueue ?? throw new ArgumentNullException(nameof(commandQueue));
+            
+            // Initialize actual DirectX 12 fences
+            InitializeFences();
         }
         
         /// <summary>
@@ -276,28 +295,42 @@ namespace TiXL.Core.Graphics.DirectX12
         }
         
         /// <summary>
-        /// Wait for specific fence value completion
+        /// Wait for specific fence value completion using actual DirectX 12 fence APIs
         /// </summary>
         public async Task WaitForFenceCompletionAsync(ulong fenceValue)
         {
-            // In real implementation, this would use actual D3D12 fence waiting
-            // For now, simulate with adaptive polling based on fence value
-            
-            while (_lastCompletedFence < fenceValue)
+            // Find the fence object for this fence value
+            FenceInfo fenceInfo = null;
+            lock (_fenceLock)
             {
-                // Simulate GPU processing time
-                await Task.Delay(1);
-                
-                // Update last completed fence (simulated)
-                _lastCompletedFence++;
-                
-                // Trigger fence signal event
-                OnFenceSignaled(new FenceSignalEventArgs
+                if (_pendingFences.TryGetValue(fenceValue, out fenceInfo))
                 {
-                    FenceValue = _lastCompletedFence,
-                    SignalTime = DateTime.UtcNow
-                });
+                    _lastCompletedFence = Math.Max(_lastCompletedFence, fenceValue);
+                }
             }
+            
+            if (fenceInfo == null)
+            {
+                // Fence already completed or doesn't exist
+                return;
+            }
+            
+            // Use real DirectX 12 fence waiting
+            await WaitForFenceCompletionAsyncInternal(fenceInfo.Fence, fenceValue);
+            
+            // Mark fence as completed
+            lock (_fenceLock)
+            {
+                _pendingFences.Remove(fenceValue);
+                _lastCompletedFence = Math.Max(_lastCompletedFence, fenceValue);
+            }
+            
+            // Trigger fence signal event
+            OnFenceSignaled(new FenceSignalEventArgs
+            {
+                FenceValue = fenceValue,
+                SignalTime = DateTime.UtcNow
+            });
         }
         
         /// <summary>
@@ -325,15 +358,27 @@ namespace TiXL.Core.Graphics.DirectX12
         
         private void InitializeFences()
         {
-            // In real implementation, create actual ID3D12Fence objects
-            // For simulation, create mock fence objects
+            // Create actual DirectX 12 fences for real CPU-GPU synchronization
             for (int i = 0; i < _maxInFlightFrames * 2; i++)
             {
-                _availableFences.Enqueue(new MockD3D12Fence());
+                _availableFences.Enqueue(CreateNewFence());
             }
+            
+            OnFramePacingAlert(new FramePacingAlert
+            {
+                Type = FramePacingAlertType.PerformanceAlert,
+                Message = $"Initialized {(_maxInFlightFrames * 2)} DirectX 12 fences for CPU-GPU synchronization",
+                Severity = AlertSeverity.Info,
+                Timestamp = DateTime.UtcNow
+            });
         }
         
-        private ID3D12Fence GetAvailableFence()
+        private D3D12FenceWrapper CreateNewFence()
+        {
+            return new D3D12FenceWrapper(_device, FenceFlags.None);
+        }
+        
+        private D3D12FenceWrapper GetAvailableFence()
         {
             lock (_fenceLock)
             {
@@ -343,12 +388,20 @@ namespace TiXL.Core.Graphics.DirectX12
                 }
                 
                 // Create new fence if none available
-                return new MockD3D12Fence();
+                return CreateNewFence();
             }
         }
         
         private void SignalFence(FrameBudgetToken token)
         {
+            if (_commandQueue == null)
+            {
+                throw new InvalidOperationException("Command queue is required for fence signaling");
+            }
+            
+            // Signal the fence on the GPU command queue for real CPU-GPU synchronization
+            token.Fence.Signal(token.FenceValue, _commandQueue);
+            
             var fenceInfo = new FenceInfo
             {
                 Fence = token.Fence,
@@ -361,19 +414,50 @@ namespace TiXL.Core.Graphics.DirectX12
             {
                 _pendingFences[token.FenceValue] = fenceInfo;
             }
+            
+            // Update frame budget tracking with real fence timing
+            UpdateFrameBudgetWithFenceSignal(token);
         }
         
-        private async Task WaitForFenceCompletionAsyncInternal(ID3D12Fence fence, ulong value)
+        private async Task WaitForFenceCompletionAsyncInternal(D3D12FenceWrapper fenceWrapper, ulong value)
         {
-            // In real implementation, use D3D12 fence APIs
-            // Simulate fence waiting with polling
-            while (true)
+            // Check if fence is already signaled
+            if (fenceWrapper.Fence.CompletedValue >= value)
             {
-                // Check if fence is signaled (simulated)
-                if (fence.IsSignaled(value))
-                    break;
-                    
-                await Task.Delay(1);
+                return;
+            }
+            
+            // Use real DirectX 12 fence waiting with proper error handling
+            try
+            {
+                fenceWrapper.SetEventOnCompletion(value, _fenceEvent.SafeWaitHandle.DangerousGetHandle());
+                
+                // Wait for the fence to be signaled using the event with timeout
+                await Task.Run(() =>
+                {
+                    var signaled = _fenceEvent.WaitOne(TimeSpan.FromSeconds(5)); // 5 second timeout
+                    if (!signaled)
+                    {
+                        OnFramePacingAlert(new FramePacingAlert
+                        {
+                            Type = FramePacingAlertType.FenceTimeout,
+                            Message = $"Fence timeout waiting for value {value}",
+                            Severity = AlertSeverity.Error,
+                            Timestamp = DateTime.UtcNow
+                        });
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                OnFramePacingAlert(new FramePacingAlert
+                {
+                    Type = FramePacingAlertType.SyncBreakdown,
+                    Message = $"Fence synchronization error: {ex.Message}",
+                    Severity = AlertSeverity.Error,
+                    Timestamp = DateTime.UtcNow
+                });
+                throw;
             }
         }
         
@@ -582,6 +666,38 @@ namespace TiXL.Core.Graphics.DirectX12
             return valuesList.Sum(x => (x - mean) * (x - mean)) / valuesList.Count;
         }
         
+        /// <summary>
+        /// Update frame budget tracking with real fence signal timing
+        /// </summary>
+        private void UpdateFrameBudgetWithFenceSignal(FrameBudgetToken token)
+        {
+            try
+            {
+                // Record the actual time when fence was signaled
+                var signalLatency = (DateTime.UtcNow - token.StartTime.ToDateTime()).TotalMilliseconds;
+                
+                // Update performance monitor with real fence timing data
+                _performanceMonitor.RecordFenceSignalTime(signalLatency);
+                
+                // Adjust frame pacing based on real GPU synchronization timing
+                var adjustedFrameTime = _targetFrameTimeMs - (signalLatency * 0.1); // Account for sync overhead
+                if (adjustedFrameTime < _criticalFrameTimeMs * 0.5)
+                {
+                    OnFramePacingAlert(new FramePacingAlert
+                    {
+                        Type = FramePacingAlertType.BudgetSkippedWork,
+                        Message = $"High fence signaling latency detected: {signalLatency:F2}ms",
+                        Severity = AlertSeverity.Warning,
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to update frame budget with fence signal: {ex.Message}");
+            }
+        }
+        
         protected virtual void OnFrameBudgetExceeded(FrameBudgetExceededEventArgs e)
         {
             FrameBudgetExceeded?.Invoke(this, e);
@@ -602,13 +718,31 @@ namespace TiXL.Core.Graphics.DirectX12
             _metricsTimer?.Dispose();
             _performanceMonitor.PerformanceAlert -= OnPerformanceAlert;
             
+            // Clean up fence resources
+            _fenceEvent?.Dispose();
+            
+            lock (_fenceLock)
+            {
+                // Dispose all available fences
+                while (_availableFences.Count > 0)
+                {
+                    var fence = _availableFences.Dequeue();
+                    fence?.Dispose();
+                }
+                
+                // Dispose all pending fences
+                foreach (var fence in _pendingFences.Values)
+                {
+                    fence.Fence?.Dispose();
+                }
+                _pendingFences.Clear();
+            }
+            
             // Clean up remaining operations
             while (_pendingResourceOperations.TryDequeue(out _)) { }
             
             // Clear queues
             _frameBudgetQueue.Clear();
-            _availableFences.Clear();
-            _pendingFences.Clear();
             
             while (_gpuTimeline.TryDequeue(out _)) { }
             
@@ -619,30 +753,60 @@ namespace TiXL.Core.Graphics.DirectX12
     
     // Supporting classes and interfaces
     
-    public interface ID3D12Fence
+    /// <summary>
+    /// Real DirectX 12 fence wrapper for frame pacing
+    /// </summary>
+    public class D3D12FenceWrapper
     {
-        bool IsSignaled(ulong value);
-        void Signal(ulong value);
-    }
-    
-    public class MockD3D12Fence : ID3D12Fence
-    {
-        private ulong _currentValue;
+        private readonly ID3D12Fence _fence;
+        private readonly ID3D12Device _device;
+        private readonly FenceFlags _flags;
+        
+        public ID3D12Fence Fence => _fence;
+        public FenceFlags Flags => _flags;
+        
+        public D3D12FenceWrapper(ID3D12Device device, FenceFlags flags = FenceFlags.None)
+        {
+            _device = device ?? throw new ArgumentNullException(nameof(device));
+            _flags = flags;
+            
+            _fence = device.CreateFence(0, flags);
+        }
         
         public bool IsSignaled(ulong value)
         {
-            return _currentValue >= value;
+            return _fence.CompletedValue >= value;
         }
         
-        public void Signal(ulong value)
+        public ulong CurrentValue => _fence.CompletedValue;
+        
+        public void Signal(ulong value, ID3D12CommandQueue commandQueue)
         {
-            _currentValue = Math.Max(_currentValue, value);
+            if (commandQueue == null)
+                throw new ArgumentNullException(nameof(commandQueue));
+                
+            _fence.Signal(value);
+        }
+        
+        public void SignalOnCpu(ulong value)
+        {
+            _fence.Signal(value);
+        }
+        
+        public void SetEventOnCompletion(ulong value, IntPtr handle)
+        {
+            _fence.SetEventOnCompletion(value, handle);
+        }
+        
+        public void Dispose()
+        {
+            _fence?.Dispose();
         }
     }
     
     public class FrameBudgetToken : IDisposable
     {
-        public ID3D12Fence Fence { get; set; }
+        public D3D12FenceWrapper Fence { get; set; }
         public ulong FenceValue { get; set; }
         public long StartTime { get; set; }
         public ulong FrameId { get; set; }
@@ -650,7 +814,11 @@ namespace TiXL.Core.Graphics.DirectX12
         
         public void Dispose()
         {
-            IsDisposed = true;
+            if (!IsDisposed)
+            {
+                IsDisposed = true;
+                Fence?.Dispose();
+            }
         }
         
         public double ElapsedMs => (Stopwatch.GetTimestamp() - StartTime) / (double)Stopwatch.Frequency * 1000.0;
@@ -658,7 +826,7 @@ namespace TiXL.Core.Graphics.DirectX12
     
     public class FenceInfo
     {
-        public ID3D12Fence Fence { get; set; }
+        public D3D12FenceWrapper Fence { get; set; }
         public ulong Value { get; set; }
         public DateTime SignaledAt { get; set; }
         public ulong FrameId { get; set; }

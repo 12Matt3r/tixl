@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Production Readiness Test Configuration -->
+<TestRun>
+  <TestSettings name="ProductionReadiness">
+    <Execution>
+      <!-- Enable parallel test execution for faster validation -->
+      <ParallelTestCount>4</ParallelTestCount>
+      
+      <!-- Timeout settings for production tests -->
+      <TestTimeout>300000</TestTimeout> <!-- 5 minutes -->
+      
+      <!-- Dispose test classes after each test -->
+      <DisposeRunners>True</DisposeRunners>
+      
+      <!-- Disable base class cleanup warnings -->
+      <IgnoreTestCancellationRequests>False</IgnoreTestCancellationRequests>
+    </Execution>
+    
+    <DataCollection>
+      <!-- Collect code coverage during production tests -->
+      <DataCollectors>
+        <DataCollector friendlyName="Code Coverage" uri="datacollector://microsoft/CodeCoverage/2.0" />
+        
+        <!-- Collect memory profiling data -->
+        <DataCollector friendlyName="Memory Collection" uri="datacollector://microsoft/MemoryMonitor/2.0" />
+        
+        <!-- Collect performance counter data -->
+        <DataCollector friendlyName="Performance Counter" uri="datacollector://microsoft/PerformanceCounter/2.0" />
+      </DataCollectors>
+      
+      <DataCollectorsSettings>
+        <CodeCoverage>
+          <CodeCoverageConfig>
+            <Format>Cobertura,OpenCover</Format>
+            <Exclude>
+              <!-- Exclude test projects and generated code -->
+              <Module>
+                <ModulePattern>*Test*.dll</ModulePattern>
+                <ModulePattern>*Generated*.dll</ModulePattern>
+              </Module>
+            </Exclude>
+            <Include>
+              <!-- Include only TiXL production components -->
+              <Module>
+                <ModulePattern>TiXL.Core.*.dll</ModulePattern>
+              </Module>
+            </Include>
+          </CodeCoverageConfig>
+        </CodeCoverage>
+      </DataCollectorsSettings>
+    </DataCollection>
+    
+    <!-- Environment configuration for production tests -->
+    <Environment>
+      <CpuArchitecture>64</CpuArchitecture>
+      <Platform>AnyCPU</Platform>
+      <FrameworkVersion>.NET 9.0</FrameworkVersion>
+    </Environment>
+    
+    <!-- Logging configuration -->
+    <Logging>
+      <LogLevel>
+        <Warning>Verbose</Warning>
+        <Error>Verbose</Error>
+        <Critical>Verbose</Critical>
+      </LogLevel>
+    </Logging>
+  </TestSettings>
+  
+  <!-- Validation-specific test settings -->
+  <TestSettings name="ProductionValidation" parent="ProductionReadiness">
+    <Execution>
+      <!-- Additional timeout for validation tests -->
+      <TestTimeout>600000</TestTimeout> <!-- 10 minutes -->
+      
+      <!-- Run tests in strict mode for validation -->
+      <StrictMode>True</StrictMode>
+    </Execution>
+    
+    <DataCollection>
+      <!-- Enhanced data collection for validation -->
+      <DataCollectors>
+        <!-- Include crash dump collection -->
+        <DataCollector friendlyName="Crash Dump" uri="datacollector://microsoft/CrashDump/2.0" />
+        
+        <!-- Include system information collection -->
+        <DataCollector friendlyName="System Information" uri="datacollector://microsoft/SystemInfo/2.0" />
+        
+        <!-- Include event log collection -->
+        <DataCollector friendlyName="Event Log" uri="datacollector://microsoft/EventLog/2.0" />
+      </DataCollectors>
+    </DataCollection>
+  </TestSettings>
+  
+  <!-- Performance-specific test settings -->
+  <TestSettings name="ProductionPerformance" parent="ProductionReadiness">
+    <Execution>
+      <!-- Longer timeout for performance tests -->
+      <TestTimeout>1800000</TestTimeout> <!-- 30 minutes -->
+      
+      <!-- Disable UI interaction during performance tests -->
+      <DisableUITestSupport>True</DisableUITestSupport>
+    </Execution>
+    
+    <DataCollection>
+      <DataCollectors>
+        <!-- Enhanced performance data collection -->
+        <DataCollector friendlyName="Performance Monitor" uri="datacollector://microsoft/PerfMonitor/2.0" />
+        
+        <!-- GPU performance monitoring -->
+        <DataCollector friendlyName="GPU Monitor" uri="datacollector://microsoft/GpuMonitor/2.0" />
+        
+        <!-- Network performance monitoring -->
+        <DataCollector friendlyName="Network Monitor" uri="datacollector://microsoft/NetworkMonitor/2.0" />
+      </DataCollectors>
+    </DataCollection>
+  </TestSettings>
+</TestRun>

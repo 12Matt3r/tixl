@@ -30,6 +30,11 @@ namespace TiXL.Tests.Categories
         public const string Core = "Core";
         public const string Editor = "Editor";
         public const string Gui = "Gui";
+        public const string Smoke = "Smoke";
+        
+        // Production Readiness Categories
+        public const string Production = "Production";
+        public const string ProductionReadiness = "ProductionReadiness";
         
         // Test priorities
         public const string P0 = "P0";

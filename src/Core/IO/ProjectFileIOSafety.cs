@@ -13,10 +13,10 @@ namespace TiXL.Core.IO
     /// </summary>
     public static class ProjectFileIOSafety
     {
-        private const string ProjectBackupDirectory = "backups";
-        private const string ProjectExtension = ".tixlproject";
-        private const string SettingsExtension = ".tixlsettings";
-        private const string WorkspaceExtension = ".tixlworkspace";
+        private const string PROJECT_BACKUP_DIRECTORY = "backups";
+        private const string PROJECT_EXTENSION = ".tixlproject";
+        private const string SETTINGS_EXTENSION = ".tixlsettings";
+        private const string WORKSPACE_EXTENSION = ".tixlworkspace";
         
         #region Project Management
         
@@ -396,7 +396,7 @@ namespace TiXL.Core.IO
                 
                 // Search for project files
                 var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-                var projectFiles = Directory.GetFiles(directoryPath, "*" + ProjectExtension, searchOption).ToList();
+                var projectFiles = Directory.GetFiles(directoryPath, "*" + PROJECT_EXTENSION, searchOption).ToList();
                 
                 var projects = new List<ProjectMetadata>();
                 var errors = new List<string>();
@@ -441,7 +441,7 @@ namespace TiXL.Core.IO
                     return new List<RecentProjectInfo>();
                 }
                 
-                var projectFiles = Directory.GetFiles(projectsDirectory, "*" + ProjectExtension, SearchOption.TopDirectoryOnly)
+                var projectFiles = Directory.GetFiles(projectsDirectory, "*" + PROJECT_EXTENSION, SearchOption.TopDirectoryOnly)
                     .Select(file => new FileInfo(file))
                     .Where(info => info.Exists)
                     .OrderByDescending(info => info.LastWriteTime)
@@ -599,7 +599,7 @@ namespace TiXL.Core.IO
         private static string GetProjectBackupDirectory(string projectPath)
         {
             var projectDir = Path.GetDirectoryName(projectPath);
-            return Path.Combine(projectDir, ProjectBackupDirectory);
+            return Path.Combine(projectDir, PROJECT_BACKUP_DIRECTORY);
         }
         
         private static List<string> GetProjectBackups(string projectPath)

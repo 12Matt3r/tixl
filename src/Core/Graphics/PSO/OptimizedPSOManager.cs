@@ -6,9 +6,8 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using SharpDX.Direct3D12;
-using SharpDX.DXGI;
-using SharpDX;
+using Vortice.Direct3D12;
+using Vortice.DXGI;
 
 namespace TiXL.Core.Graphics.PSO
 {

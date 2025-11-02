@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using SharpDX;
-using SharpDX.Direct3D12;
-using SharpDX.DXGI;
+using Vortice.Direct3D12;
+using Vortice.DXGI;
 
 namespace TiXL.Examples.Graphics
 {

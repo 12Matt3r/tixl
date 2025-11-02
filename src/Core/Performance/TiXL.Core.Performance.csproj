@@ -15,6 +15,13 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
     <PackageReference Include="System.Memory" Version="4.5.5" />
+    <PackageReference Include="Vortice.Windows.Direct3D12" Version="1.5.6" />
+    <PackageReference Include="Vortice.Windows" Version="1.5.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Graphics\DirectX12\TiXL.Core.Graphics.DirectX12.csproj" />
+    <ProjectReference Include="..\Validation\TiXL.Core.Validation.csproj" />
   </ItemGroup>
 
 </Project>

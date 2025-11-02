@@ -60,7 +60,7 @@
     <WarningsNotAsErrors>CS1591</WarningsNotAsErrors> <!-- Allow missing XML doc warnings in some cases -->
     
     <!-- Specific warning suppressions for known issues -->
-    <NoWarn>$(NoWarn);CA2000;CA2007;CA2100;CA2200;CA2201</NoWarn>
+    <NoWarn>$(NoWarn);CA2000</NoWarn>
     
     <!-- Documentation Generation -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

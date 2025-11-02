@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="utf-8"?>
+<StyleCopSettings Version="110">
+  <GlobalSettings>
+    <BooleanProperty Name="EnabledByDefault">True</BooleanProperty>
+    <BooleanProperty Name="SuppressViolations">False</BooleanProperty>
+    <StringProperty Name="DocumentationFileName">StyleCop.Documentation.xml</StringProperty>
+  </GlobalSettings>
+
+  <!-- Naming Rules -->
+  <NamingRules>
+    <BooleanProperty Name="ForceEnclosingNamespace">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreFieldPrefixes">_</BooleanProperty>
+    <BooleanProperty Name="IgnoreInterfaces">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreProperties">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreEvents">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreMethods">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreAttributes">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreDelegateParameters">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreConstructorParameters">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreMethodParameters">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreAttributeParameters">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreLastElement">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreOverloadedMethod">False</BooleanProperty>
+    <BooleanProperty Name="IncludeReadonlyFields">True</BooleanProperty>
+    
+    <!-- TiXL-specific naming conventions -->
+    <StringProperty Name="HungarianNotation">false</StringProperty>
+    
+    <!-- Allowed prefixes and suffixes -->
+    <StringProperty Name="AllowedPrefixes">I,Test,Mock</StringProperty>
+    <StringProperty Name="AllowedUnderscorePrefixes">_</StringProperty>
+    <StringProperty Name="AllowedSuffixes">Changed,Handler,EventArgs,Exception,Result</StringProperty>
+    
+    <!-- Special name handling -->
+    <StringProperty Name="AllowCommonHungarianPrefixes">b,v,c,i,n,s,r,l,d,f,m,o,h,w,p,q,x,y</StringProperty>
+  </NamingRules>
+
+  <!-- Documentation Rules -->
+  <DocumentationRules>
+    <BooleanProperty Name="EnabledByDefault">True</BooleanProperty>
+    <BooleanProperty Name="IgnorePrivates">False</BooleanProperty>
+    <BooleanProperty Name="IgnoreInternals">False</BooleanProperty>
+    <BooleanProperty Name="IgnorePlatform">False</BooleanProperty>
+    <BooleanProperty Name="DocumentProperties">True</BooleanProperty>
+    <BooleanProperty Name="DocumentEvents">True</BooleanProperty>
+    <BooleanProperty Name="DocumentDelegates">True</BooleanProperty>
+    <BooleanProperty Name="DocumentInterfaces">True</BooleanProperty>
+    <BooleanProperty Name="DocumentProtectedMethods">True</BooleanProperty>
+    <BooleanProperty Name="DocumentPrivateMethods">True</BooleanProperty>
+    <BooleanProperty Name="DocumentPrivateFields">False</BooleanProperty>
+    <BooleanProperty Name="DocumentExpectedException">True</BooleanProperty>
+    <BooleanProperty Name="DocumentLinkElement">True</BooleanProperty>
+    <BooleanProperty Name="DocumentInlineLinkElement">True</BooleanProperty>
+    <BooleanProperty Name="DocumentLinkTarget">True</BooleanProperty>
+    <BooleanProperty Name="DocumentComparable">True</BooleanProperty>
+    <BooleanProperty Name="DocumentEquivalence">True</BooleanProperty>
+    <BooleanProperty Name="DocumentAsync">True</BooleanProperty>
+    <BooleanProperty Name="DocumentTrailingParameter">False</BooleanProperty>
+    <BooleanProperty Name="DocumentRequiredParameters">False</BooleanProperty>
+    <BooleanProperty Name="DocumentNewLineBeforeAttributes">True</BooleanProperty>
+    <BooleanProperty Name="DocumentationTextNewLineBeforeValue">True</BooleanProperty>
+    <BooleanProperty Name="DocumentationTextIndentation">Single</BooleanProperty>
+    <BooleanProperty Name="DocumentationTextIndentSize">4</BooleanProperty>
+    
+    <!-- Documentation headers -->
+    <StringProperty Name="CompanyName">TiXL Technologies</StringProperty>
+    <StringProperty Name="Copyright">Copyright © 2024 TiXL Technologies. All rights reserved.</StringProperty>
+    <StringProperty Name="License">MIT License</StringProperty>
+    <StringProperty Name="Project">TiXL Real-time Graphics Engine</StringProperty>
+  </DocumentationRules>
+
+  <!-- Layout Rules -->
+  <LayoutRules>
+    <BooleanProperty Name="EnabledByDefault">True</BooleanProperty>
+    <BooleanProperty Name="SeparateUsingDirectives">True</BooleanProperty>
+    <BooleanProperty Name="KeepUsingDirectivesInOrder">False</BooleanProperty>
+    <BooleanProperty Name="KeepUserDefinedUsingOrder">False</BooleanProperty>
+    <BooleanProperty Name="KeepExteriorUsingDirectives">False</BooleanProperty>
+    <BooleanProperty Name="SortUsingDirectives">True</BooleanProperty>
+    <BooleanProperty Name="RemoveUnnecessaryLines">False</BooleanProperty>
+    <BooleanProperty Name="UseDefaultSettings">True</BooleanProperty>
+    <BooleanProperty Name="AllowIndentationAfterUsings">True</BooleanProperty>
+    
+    <!-- Using directive ordering -->
+    <StringProperty Name="UsingDirectivesPlacement">insideNamespace</StringProperty>
+    
+    <!-- Element ordering -->
+    <StringProperty Name="ElementOrderRules">alphabetic, fields, properties, events, methods, constructors, delegates, interfaces, enums, structs, classes</StringProperty>
+  </LayoutRules>
+
+  <!-- Ordering Rules -->
+  <OrderingRules>
+    <BooleanProperty Name="EnabledByDefault">True</BooleanProperty>
+    <BooleanProperty Name="SeparateUsingDirectives">True</BooleanProperty>
+    <BooleanProperty Name="SortUsingDirectives">True</BooleanProperty>
+    <BooleanProperty Name="SortSystemUsingDirectivesFirst">True</BooleanProperty>
+    <BooleanProperty Name="SortMicrosoftUsingDirectivesFirst">True</BooleanProperty>
+    <BooleanProperty Name="SortExternalUsingDirectivesFirst">False</BooleanProperty>
+    <BooleanProperty Name="SortAnalyzerUsingDirectivesFirst">False</BooleanProperty>
+    <BooleanProperty Name="SortRulesSystemUsingDirectivesFirst">True</BooleanProperty>
+    <BooleanProperty Name="SortRulesMicrosoftUsingDirectivesFirst">True</BooleanProperty>
+    <BooleanProperty Name="SortRulesExternalUsingDirectivesFirst">False</BooleanProperty>
+    <BooleanProperty Name="SortRulesAnalyzerUsingDirectivesFirst">False</BooleanProperty>
+    <BooleanProperty Name="KeepUsingDirectivesInOrder">False</BooleanProperty>
+    <BooleanProperty Name="RemoveUnnecessaryLines">True</BooleanProperty>
+    <BooleanProperty Name="MaxEmptyLinesToKeep">3</BooleanProperty>
+    
+    <!-- TiXL-specific ordering -->
+    <BooleanProperty Name="GroupByAccess">False</BooleanProperty>
+    <BooleanProperty Name="GroupByType">True</BooleanProperty>
+    <BooleanProperty Name="GroupByNamespace">False</BooleanProperty>
+  </OrderingRules>
+
+  <!-- Readability Rules -->
+  <ReadabilityRules>
+    <BooleanProperty Name="EnabledByDefault">True</BooleanProperty>
+    <BooleanProperty Name="AllowMultipleDeclarationsOnOneLine">False</BooleanProperty>
+    <BooleanProperty Name="AllowBlockToSurroundElement">True</BooleanProperty>
+    <BooleanProperty Name="AllowCompoundConditions">True</BooleanProperty>
+    <BooleanProperty Name="AllowComplexConditionalExpressions">False</BooleanProperty>
+    <BooleanProperty Name="AllowSimpleConditionalExpressions">True</BooleanProperty>
+    <BooleanProperty Name="AllowComplexConditions">True</BooleanProperty>
+    <BooleanProperty Name="AllowComplexInterfaces">False</BooleanProperty>
+    <BooleanProperty Name="AllowComplexTypes">True</BooleanProperty>
+    <BooleanProperty Name="AllowDirectAccessToStaticMembers">False</BooleanProperty>
+    <BooleanProperty Name="AllowEmptyCast">False</BooleanProperty>
+    <BooleanProperty Name="AllowIfConditionWithoutElse">False</BooleanProperty>
+    <BooleanProperty Name="AllowParameterlessValueTypes">True</BooleanProperty>
+    <BooleanProperty Name="AllowPlaceholdersAfterVariableDeclarations">False</BooleanProperty>
+    <BooleanProperty Name="AllowUnnecessaryBoxingOfValueTypes">False</BooleanProperty>
+    <BooleanProperty Name="AllowUnnecessaryCaseLabels">False</BooleanProperty>
+    <BooleanProperty Name="AllowUnnecessaryLambdaExpression">False</BooleanProperty>
+    <BooleanProperty Name="AllowUnnamedConditionalMethods">False</BooleanProperty>
+    <BooleanProperty Name="AllowUnreachableCode">False</BooleanProperty>
+    
+    <!-- Length restrictions -->
+    <IntegerProperty Name="MaxParameterLength">15</IntegerProperty>
+    <IntegerProperty Name="MaxMethodLength">40</IntegerProperty>
+    <IntegerProperty Name="MaxTypeLength">20</IntegerProperty>
+  </ReadabilityRules>
+
+  <!-- Spacing Rules -->
+  <SpacingRules>
+    <BooleanProperty Name="EnabledByDefault">True</BooleanProperty>
+    <BooleanProperty Name="IgnoreCodeWithinStyleRule">True</BooleanProperty>
+    <BooleanProperty Name="IgnoreCodeWithinDocCommentStyleRule">True</BooleanProperty>
+    <BooleanProperty Name="AllowEolAtEnd">True</BooleanProperty>
+    <BooleanProperty Name="AllowTabs">False</BooleanProperty>
+    <BooleanProperty Name="AllowTrailingSpaces">False</BooleanProperty>
+    <BooleanProperty Name="CombineSpacesWhenMultipleTokens">False</BooleanProperty>
+    <BooleanProperty Name="NewLineBeforeCloseParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="NewLineAfterOpenParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="NewLineBetweenCloseParenthesisAndOpenParenthesis">True</BooleanProperty>
+    <BooleanProperty Name="NewLineBetweenCloseParenthesisAndOpenBrace">True</BooleanProperty>
+    <BooleanProperty Name="NewLineAfterLastTokenInAStatement">True</BooleanProperty>
+    <BooleanProperty Name="NewLineBeforeFirstTokenInABlock">True</BooleanProperty>
+    <BooleanProperty Name="NewLineAfterLastTokenInAContentSwitch">True</BooleanProperty>
+    <BooleanProperty Name="NewLineBeforeCaseClause">True</BooleanProperty>
+    <BooleanProperty Name="SpaceAroundBinaryOperators">True</BooleanProperty>
+    <BooleanProperty Name="SpaceAroundLogicalOperators">True</BooleanProperty>
+    <BooleanProperty Name="NoSpaceAfterOpeningParenthesis">True</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenEmptyParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceAfterCast">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBeforeCastParenthesis">True</BooleanProperty>
+    <BooleanProperty Name="SpaceWithinEmptyCastParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceAfterCastParenthesis">True</BooleanProperty>
+    <BooleanProperty Name="SpaceBeforeMethodCallParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenMethodNameAndOpeningParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="SpaceWithinMethodCallParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenEmptyMethodCallParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceAfterMethodDeclarationName">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBeforeMethodDeclarationName">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBeforeMethodDeclarationParenthesis">True</BooleanProperty>
+    <BooleanProperty Name="SpaceWithinMethodDeclarationParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenEmptyMethodDeclarationParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenMethodDeclarationNameAndParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBeforeFieldDeclarationParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenFieldDeclarationNameAndParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="SpaceWithinEmptyFieldDeclarationParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenPropertyDeclarationNameAndParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBeforePropertyDeclarationParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="SpaceWithinPropertyDeclarationParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenEventDeclarationNameAndParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBeforeEventDeclarationParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="SpaceWithinEventDeclarationParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenMethodParameterNameAndParenthesis">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBeforeMethodParameterName">False</BooleanProperty>
+    <BooleanProperty Name="SpaceWithinMethodParameterParentheses">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBetweenMethodParameterNameAndComma">True</BooleanProperty>
+    <BooleanProperty Name="SpaceAfterMethodParameterNameAndComma">True</BooleanProperty>
+    <BooleanProperty Name="SpaceAfterTypeColon">True</BooleanProperty>
+    <BooleanProperty Name="SpaceBeforeTypeColon">False</BooleanProperty>
+    <BooleanProperty Name="SpaceAfterComma">True</BooleanProperty>
+    <BooleanProperty Name="BeforeComma">False</BooleanProperty>
+    <BooleanProperty Name="SpaceBeforeComma">False</BooleanProperty>
+    <BooleanProperty Name="RemoveWhitespace">True</BooleanProperty>
+    <BooleanProperty Name="AllowKeywordsInParameters">True</BooleanProperty>
+    <BooleanProperty Name="AllowKeywordsInPrivateParameters">False</BooleanProperty>
+    <BooleanProperty Name="RequireKeywordsInParameters">True</BooleanProperty>
+    <BooleanProperty Name="RequireKeywordsInPrivateParameters">False</BooleanProperty>
+    <BooleanProperty Name="AllowKeywordsInAttributes">True</BooleanProperty>
+    <BooleanProperty Name="AllowKeywordInAttributes">True</BooleanProperty>
+    <BooleanProperty Name="RequireKeywordsInAttributes">False</BooleanProperty>
+    <BooleanProperty Name="AllowKeywordInAttributes">True</BooleanProperty>
+    <BooleanProperty Name="RequireKeywordInAttributes">False</BooleanProperty>
+  </SpacingRules>
+
+  <!-- Maintainability Rules -->
+  <MaintainabilityRules>
+    <BooleanProperty Name="EnabledByDefault">True</BooleanProperty>
+    <BooleanProperty Name="UseStringLiteralForEmptyString">True</BooleanProperty>
+    <BooleanProperty Name="UseStringEmptyForEmptyString">False</BooleanProperty>
+    <BooleanProperty Name="UseThrowExpression">True</BooleanProperty>
+    <BooleanProperty Name="UseThrowProperty">True</BooleanProperty>
+    <BooleanProperty Name="UseFullTypeName">False</BooleanProperty>
+    <BooleanProperty Name="UseFullTypeNameInCodeFixes">True</BooleanProperty>
+    <BooleanProperty Name="AllowEmptyMethods">False</BooleanProperty>
+    <BooleanProperty Name="AllowEmptyTypes">False</BooleanProperty>
+    <BooleanProperty Name="AllowEmptyInterfaces">False</BooleanProperty>
+    <BooleanProperty Name="AllowEmptyCollections">False</BooleanProperty>
+    <BooleanProperty Name="AllowFileHeaders">True</BooleanProperty>
+    <BooleanProperty Name="AllowAtComment">False</BooleanProperty>
+    <BooleanProperty Name="AllowUserAddedCode">False</BooleanProperty>
+    <BooleanProperty Name="AllowNestedRegions">False</BooleanProperty>
+    <BooleanProperty Name="AllowFileHeaderAtTopOfFile">False</BooleanProperty>
+    <BooleanProperty Name="AllowExclusionOfLastPeriod">False</BooleanProperty>
+    
+    <!-- TiXL-specific maintainability rules -->
+    <BooleanProperty Name="UseIConfigurationInsteadOfAccessingPropertiesDirectly">True</BooleanProperty>
+    <BooleanProperty Name="UseDependencyInjection">True</BooleanProperty>
+    <BooleanProperty Name="PreferStringFormat">True</BooleanProperty>
+    <BooleanProperty Name="PreferStringInterpolation">True</BooleanProperty>
+  </MaintainabilityRules>
+
+  <!-- Rules for specific file types -->
+  <FileNamingRules>
+    <BooleanProperty Name="EnabledByDefault">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForPublicClass">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForInternalClass">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForPublicStruct">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForInternalStruct">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForPublicEnum">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForInternalEnum">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForPublicInterface">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForInternalInterface">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForPublicDelegate">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForInternalDelegate">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForPublicRecord">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForInternalRecord">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForPublicRecordStruct">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForInternalRecordStruct">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForPublicAbstractClass">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForInternalAbstractClass">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForPublicStaticClass">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForInternalStaticClass">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForPublicSealedClass">True</BooleanProperty>
+    <BooleanProperty Name="UseFileNameForInternalSealedClass">True</BooleanProperty>
+  </FileNamingRules>
+
+  <!-- Performance Rules -->
+  <PerformanceRules>
+    <BooleanProperty Name="EnabledByDefault">True</BooleanProperty>
+    <BooleanProperty Name="AllowMultipleGetAccessorsInOneLine">False</BooleanProperty>
+    <BooleanProperty Name="AllowMultipleSetAccessorsInOneLine">False</BooleanProperty>
+    <BooleanProperty Name="AllowPropertyWithMultipleAccessorsOnMultipleLines">False</BooleanProperty>
+    <BooleanProperty Name="AllowAutoProperties">False</BooleanProperty>
+    <BooleanProperty Name="AllowManualGetPropertyOverride">True</BooleanProperty>
+    <BooleanProperty Name="AllowManualSetPropertyOverride">True</BooleanProperty>
+    <BooleanProperty Name="AllowUseReadOnlyAutomaticProperties">True</BooleanProperty>
+    <BooleanProperty Name="AllowInitAutoProperties">True</BooleanProperty>
+    
+    <!-- TiXL-specific performance rules -->
+    <BooleanProperty Name="UseCollectionExpression">True</BooleanProperty>
+    <BooleanProperty Name="UsePatternMatching">True</BooleanProperty>
+    <BooleanProperty Name="UseRefStructs">True</BooleanProperty>
+    <BooleanProperty Name="UseRecordStructs">True</BooleanProperty>
+  </PerformanceRules>
+
+  <!-- Suppression Rules -->
+  <SuppressionRules>
+    <BooleanProperty Name="EnabledByDefault">True</BooleanProperty>
+    <BooleanProperty Name="AllowSuppression">False</BooleanProperty>
+    <BooleanProperty Name="AllowXmlCommentSuppression">True</BooleanProperty>
+    <BooleanProperty Name="AllowPreprocessorSuppression">False</BooleanProperty>
+  </SuppressionRules>
+
+  <!-- TiXL-specific custom rules -->
+  <CustomRules>
+    <!-- Graphics programming specific rules -->
+    <BooleanProperty Name="AllowUseOfGraphicsMemory">False</BooleanProperty>
+    <BooleanProperty Name="RequireExceptionHandlingForGraphicsOperations">True</BooleanProperty>
+    <BooleanProperty Name="RequireAsyncSuffixForAsyncGraphicsOperations">True</BooleanProperty>
+    <BooleanProperty Name="RequireDisposalPatternForGraphicsResources">True</BooleanProperty>
+    
+    <!-- Performance specific rules -->
+    <BooleanProperty Name="RequireValueTypeUsage">True</BooleanProperty>
+    <BooleanProperty Name="RequireSpanAndReadOnlySpanUsage">True</BooleanProperty>
+    <BooleanProperty Name="RequireMemoryTUsage">True</BooleanProperty>
+    
+    <!-- Security specific rules -->
+    <BooleanProperty Name="RequireSecureRandomNumberGeneration">True</BooleanProperty>
+    <BooleanProperty Name="DisallowHardcodedPasswords">True</BooleanProperty>
+    <BooleanProperty Name="RequireInputValidation">True</BooleanProperty>
+  </CustomRules>
+</StyleCopSettings>

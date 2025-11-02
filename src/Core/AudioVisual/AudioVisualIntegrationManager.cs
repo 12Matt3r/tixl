@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using TiXL.Core.Performance;
-using TiXL.Core.Operators;
 using TiXL.Core.Logging;
+using TiXL.Core.Operators;
+using TiXL.Core.Performance;
 
 namespace TiXL.Core.AudioVisual
 {
@@ -40,7 +40,7 @@ namespace TiXL.Core.AudioVisual
             int targetFrameRate = 60)
         {
             _evaluationContext = evaluationContext ?? throw new ArgumentNullException(nameof(evaluationContext));
-            _logging = logging ?? throw new ArgumentNullException(nameof(loging));
+            _logging = logging ?? throw new ArgumentNullException(nameof(logging));
             _effectBindings = new Dictionary<string, VisualEffectBinding>();
             TargetFrameRate = targetFrameRate;
             

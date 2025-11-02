@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using SharpDX.Direct3D12;
+using Vortice.Direct3D12;
 
 namespace TiXL.Core.Graphics.PSO
 {

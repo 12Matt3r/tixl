@@ -1,0 +1,82 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>TiXL.CyclicDependencyAnalyzer</AssemblyName>
+    <RootNamespace>TiXL.Tools.CyclicDependencyAnalyzer</RootNamespace>
+    <Title>TiXL Cyclic Dependency Analyzer</Title>
+    <Description>Tool to detect and report cyclic dependencies in TiXL solution</Description>
+    <Version>1.0.0</Version>
+    <Authors>TiXL Team</Authors>
+    <Company>TiXL Technologies</Company>
+    <Product>TiXL Real-time Graphics Engine</Product>
+    <Copyright>Copyright © 2024 TiXL Technologies</Copyright>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Code Analysis -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    
+    <!-- Treat warnings as errors for this tool -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningLevel>5</WarningLevel>
+    
+    <!-- Documentation -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+    
+    <!-- Build settings -->
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- MSBuild and Workspace support -->
+    <PackageReference Include="Microsoft.Build.Locator" Version="1.5.5" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.8.0" />
+    <PackageReference Include="Microsoft.Build" Version="17.8.5" />
+    <PackageReference Include="Microsoft.Build.Framework" Version="17.8.5" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.8.5" />
+    
+    <!-- Logging -->
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    
+    <!-- JSON serialization -->
+    <PackageReference Include="System.Text.Json" Version="8.0.4" />
+    
+    <!-- File system utilities -->
+    <PackageReference Include="System.IO.FileSystem" Version="4.3.0" />
+    
+    <!-- Text processing -->
+    <PackageReference Include="System.Text.Encoding.Extensions" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Include tool configuration files -->
+    <None Include="README.md" />
+    <None Include="CHANGELOG.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copy tool to output directory -->
+    <None Include="$(OutputPath)\$(AssemblyName).exe" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Post-build events -->
+  <Target Name="CopyToToolsDirectory" AfterTargets="Build">
+    <ItemGroup>
+      <ToolFiles Include="$(OutputPath)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ToolFiles)" DestinationFolder="$(SolutionDir)tools\$(AssemblyName)\%(RecursiveDir)" 
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

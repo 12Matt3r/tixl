@@ -369,6 +369,20 @@ namespace TiXL.Core.IO
         WorkerStopTimeout,
         WorkerDisposeError,
         
+        // Thread isolation alerts
+        IOThreadPoolInitialized,
+        IOThreadPoolInitFailed,
+        IOThreadPoolError,
+        BackgroundIOThreadError,
+        BackgroundIOThreadFatalError,
+        HeavyIOProcessingTimeout,
+        
+        // Async file operation alerts
+        AsyncFileOperationFailed,
+        AsyncFileOperationError,
+        AsyncFileOperationCompleted,
+        FileOperationProgress,
+        
         // Performance alerts
         HighPriorityQueueBacklog,
         ProcessingDelay,

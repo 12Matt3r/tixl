@@ -108,4 +108,30 @@ namespace TiXL.Core.Graphics.DirectX12
             return "D";
         }
     }
+    
+    /// <summary>
+    /// GPU utilization analysis for performance optimization
+    /// </summary>
+    public class GpuUtilizationAnalysis
+    {
+        public double AverageUtilization { get; set; }
+        public double MinUtilization { get; set; }
+        public double MaxUtilization { get; set; }
+        public double UtilizationVariance { get; set; }
+        public int Spikes { get; set; }
+        public List<string> Bottlenecks { get; set; }
+        public int SampleCount { get; set; }
+        public DateTime Timestamp { get; set; }
+        
+        public bool IsPerformanceHealthy => AverageUtilization < 85.0 && Spikes < SampleCount * 0.1;
+        public string PerformanceRating => CalculatePerformanceRating();
+        
+        private string CalculatePerformanceRating()
+        {
+            if (AverageUtilization < 60.0 && UtilizationVariance < 100.0) return "Excellent";
+            if (AverageUtilization < 75.0 && UtilizationVariance < 225.0) return "Good";
+            if (AverageUtilization < 90.0 && UtilizationVariance < 400.0) return "Fair";
+            return "Poor";
+        }
+    }
 }

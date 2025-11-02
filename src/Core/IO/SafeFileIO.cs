@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using TiXL.Core.Validation;
 
 namespace TiXL.Core.IO
 {
@@ -210,10 +211,21 @@ namespace TiXL.Core.IO
         /// </summary>
         public async Task<WriteResult> SafeWriteAsync(string path, byte[] content, bool createBackup = true)
         {
-            var validation = ValidateWritePath(path);
-            if (!validation.IsValid)
+            try
             {
-                return WriteResult.Failed($"Path validation failed: {validation.ErrorMessage}");
+                ValidationHelpers.ValidateFilePath(path, allowCreate: true);
+                ValidationHelpers.ThrowIfNull(content, nameof(content));
+                ValidationHelpers.ValidateNonNegative(content.Length, nameof(content));
+                
+                // Additional content size validation (e.g., maximum 1GB)
+                if (content.Length > 1024 * 1024 * 1024)
+                {
+                    return WriteResult.Failed("Content size exceeds maximum allowed size (1GB)");
+                }
+            }
+            catch (Exception ex)
+            {
+                return WriteResult.Failed($"Input validation failed: {ex.Message}");
             }
             
             using var operation = _monitor.StartOperation($"SafeWrite:{Path.GetFileName(path)}");
@@ -352,16 +364,12 @@ namespace TiXL.Core.IO
         {
             try
             {
-                var validation = ValidateWritePath(path);
-                if (!validation.IsValid)
-                {
-                    // For read operations, validate the file can be accessed
-                    validation = ValidateReadPath(path);
-                    if (!validation.IsValid)
-                    {
-                        return ReadResult<string>.Failed($"Read path validation failed: {validation.ErrorMessage}");
-                    }
-                }
+                ValidationHelpers.ValidateFilePath(path, allowCreate: false);
+            }
+            catch (Exception ex)
+            {
+                return ReadResult<string>.Failed($"Input validation failed: {ex.Message}");
+            }
                 
                 using var operation = _monitor.StartOperation($"SafeReadAllText:{Path.GetFileName(path)}");
                 
@@ -502,11 +510,7 @@ namespace TiXL.Core.IO
         {
             try
             {
-                var validation = ValidateWritePath(path);
-                if (!validation.IsValid)
-                {
-                    return DirectoryOperationResult.Failed($"Directory path validation failed: {validation.ErrorMessage}");
-                }
+                ValidationHelpers.ValidateDirectoryPath(path, allowCreate: true);
                 
                 using var operation = _monitor.StartOperation($"SafeCreateDirectory:{Path.GetFileName(path)}");
                 

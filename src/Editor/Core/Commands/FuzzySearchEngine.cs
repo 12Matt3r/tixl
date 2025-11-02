@@ -30,20 +30,20 @@ namespace TiXL.Editor.Core.Commands
         /// <summary>
         /// Minimum score threshold for results
         /// </summary>
-        private const float MinScore = 0.1f;
+        private const float MIN_SCORE = 0.1f;
 
         /// <summary>
         /// Weights for different match types
         /// </summary>
-        private const float ExactMatchWeight = 1.0f;
-        private const float PrefixMatchWeight = 0.8f;
-        private const float FuzzyMatchWeight = 0.6f;
-        private const float KeywordMatchWeight = 0.7f;
+        private const float EXACT_MATCH_WEIGHT = 1.0f;
+        private const float PREFIX_MATCH_WEIGHT = 0.8f;
+        private const float FUZZY_MATCH_WEIGHT = 0.6f;
+        private const float KEYWORD_MATCH_WEIGHT = 0.7f;
 
         /// <summary>
         /// Character mismatch penalty
         /// </summary>
-        private const float MismatchPenalty = 0.1f;
+        private const float MISMATCH_PENALTY = 0.1f;
 
         public ImmutableArray<CommandSearchResult> Search(string query, ImmutableArray<CommandDefinition> commands, int maxResults = 50)
         {
@@ -61,7 +61,7 @@ namespace TiXL.Editor.Core.Commands
                 if (!command.IsEnabled) continue;
 
                 var scoreResult = CalculateScore(queryLower, command);
-                if (scoreResult.Score >= MinScore)
+                if (scoreResult.Score >= MIN_SCORE)
                 {
                     results.Add((command, scoreResult.Score, scoreResult.NameMatches, scoreResult.DescriptionMatches, scoreResult.KeywordMatches));
                 }
@@ -103,7 +103,7 @@ namespace TiXL.Editor.Core.Commands
             // Check exact match
             if (nameLower == query)
             {
-                totalScore += ExactMatchWeight * 2f; // Double weight for exact name match
+                totalScore += EXACT_MATCH_WEIGHT * 2f; // Double weight for exact name match
                 nameMatches.Add(new MatchRange { Start = 0, Length = command.Name.Length });
                 return new SearchScoreResult(totalScore, nameMatches, descriptionMatches, keywordMatches);
             }
@@ -111,7 +111,7 @@ namespace TiXL.Editor.Core.Commands
             // Check prefix match
             if (nameLower.StartsWith(query))
             {
-                totalScore += PrefixMatchWeight * 1.5f;
+                totalScore += PREFIX_MATCH_WEIGHT * 1.5f;
                 nameMatches.Add(new MatchRange { Start = 0, Length = query.Length });
             }
 
@@ -139,11 +139,11 @@ namespace TiXL.Editor.Core.Commands
                 // Exact keyword match
                 if (keywordLower == query)
                 {
-                    totalScore += KeywordMatchWeight * 1.5f;
+                    totalScore += KEYWORD_MATCH_WEIGHT * 1.5f;
                     keywordMatches.Add(new KeywordMatch
                     {
                         Keyword = keyword,
-                        Score = KeywordMatchWeight * 1.5f,
+                        Score = KEYWORD_MATCH_WEIGHT * 1.5f,
                         Range = new MatchRange { Start = 0, Length = keyword.Length }
                     });
                 }
@@ -153,11 +153,11 @@ namespace TiXL.Editor.Core.Commands
                     var keywordScore = SearchString(query, keywordLower);
                     if (keywordScore.Score > 0)
                     {
-                        totalScore += keywordScore.Score * KeywordMatchWeight;
+                        totalScore += keywordScore.Score * KEYWORD_MATCH_WEIGHT;
                         keywordMatches.Add(new KeywordMatch
                         {
                             Keyword = keyword,
-                            Score = keywordScore.Score * KeywordMatchWeight,
+                            Score = keywordScore.Score * KEYWORD_MATCH_WEIGHT,
                             Range = keywordScore.Matches.FirstOrDefault() ?? new MatchRange()
                         });
                     }
@@ -197,7 +197,7 @@ namespace TiXL.Editor.Core.Commands
                     }
                     else
                     {
-                        stringScore -= MismatchPenalty;
+                        stringScore -= MISMATCH_PENALTY;
                     }
                 }
 

@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SharpDX;
-using SharpDX.Direct3D12;
-using SharpDX.DXGI;
+using Vortice.Direct3D12;
+using Vortice.DXGI;
 
 namespace TiXL.Core.Graphics.PSO
 {
     /// <summary>
-    /// Wrapper for SharpDX PipelineState with additional metadata
+    /// Wrapper for Vortice.Windows PipelineState with additional metadata
     /// </summary>
     public class PipelineState : IDisposable
     {
@@ -17,7 +16,7 @@ namespace TiXL.Core.Graphics.PSO
         public DateTime CreationTimestamp { get; set; } = DateTime.UtcNow;
         public TimeSpan CreationDuration { get; set; } = TimeSpan.Zero;
         
-        // Internal SharpDX PSO (would be actual PSO in production)
+        // Internal Vortice PSO (would be actual PSO in production)
         private PipelineStateObject _internalPSO;
         private int _accessCount = 0;
         private DateTime _lastAccessTime;
