@@ -4,6 +4,7 @@ using T3.Core.DataTypes.Vector;
 using T3.Core.Operator;
 using T3.Core.SystemUi;
 using T3.Core.Utils;
+using T3.Editor.Gui.Input;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.UiModel;
 using T3.SystemUi;
@@ -138,21 +139,26 @@ internal static class CustomComponents
         return clicked;
     }
 
+    
+    
     public static bool ToggleIconButton(Icon icon, string label, ref bool isSelected, Vector2 size, bool trigger = false)
     {
         var clicked = false;
-
         var stateTextColor = isSelected
                                  ? UiColors.StatusActivated.Rgba
                                  : UiColors.TextDisabled.Rgba;
+        
         ImGui.PushStyleColor(ImGuiCol.Text, stateTextColor);
+        
+        var yAlign = ComputeVerticalIconAlign(size.Y);
 
-        var align = string.IsNullOrEmpty(label) ? new Vector2(0.1f, 0.5f) : new Vector2(0.5f, 0.5f);
+        var align = string.IsNullOrEmpty(label) ? new Vector2(0.1f, yAlign) : new Vector2(0.5f, yAlign);
         ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, align);
         ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, Vector2.Zero);
 
         ImGui.PushFont(Icons.IconFont);
 
+        ImGui.AlignTextToFramePadding();
         if (ImGui.Button($"{(char)icon}##label", size))
         {
             isSelected = !isSelected;
@@ -165,6 +171,14 @@ internal static class CustomComponents
         ImGui.PopStyleColor(1);
 
         return clicked;
+    }
+
+    internal static float ComputeVerticalIconAlign(float frameHeight)
+    {
+        var iconFontSize = Icons.IconFont.FontSize + 1; // Sadly, this seems to be locked at 13px with some weird offset to align it :-(
+        var iconHeight = Icons.FontSize;
+        var yAlign = (frameHeight - iconHeight) / (2 * (frameHeight - iconFontSize));
+        return yAlign;
     }
 
     public enum ButtonStates
@@ -235,7 +249,17 @@ internal static class CustomComponents
         }
 
         ImGui.PushFont(Icons.IconFont);
-        ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, new Vector2(0.5f, 0.5f));
+        var yAlign = ComputeVerticalIconAlign(size.Y);
+
+        // Draw some debug vis
+        // {
+        //     var drawList = ImGui.GetForegroundDrawList();
+        //     var p = ImGui.GetCursorScreenPos();
+        //     drawList.AddRect(p, p + new Vector2(3, size.Y), UiColors.StatusActivated);
+        //     drawList.AddRect(p, p + new Vector2(5, Icons.FontSize), UiColors.StatusAnimated);
+        // }
+        
+        ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, new Vector2(0.5f, yAlign));
         ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, Vector2.Zero);
 
         ImGui.PushStyleColor(ImGuiCol.ButtonActive, UiColors.BackgroundButtonActivated.Rgba);
@@ -278,7 +302,7 @@ internal static class CustomComponents
         var dl = ImGui.GetWindowDrawList();
         dl.AddRectFilled(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), GetButtonStateBackgroundColor(), 7, corners);
 
-        Icons.DrawIconOnLastItem(icon, iconColor);
+        Icons.DrawIconCenter(icon, iconColor);
         return triggered;
     }
 
@@ -286,8 +310,8 @@ internal static class CustomComponents
     {
         return state switch
                    {
-                       ButtonStates.Dimmed         => UiColors.TextMuted.Fade(0.5f),
-                       ButtonStates.Disabled       => UiColors.TextDisabled,
+                       ButtonStates.Dimmed         => UiColors.TextMuted.Fade(0.8f),
+                       ButtonStates.Disabled       => UiColors.TextDisabled.Fade(0.6f),
                        ButtonStates.Activated      => UiColors.StatusActivated,
                        ButtonStates.NeedsAttention => UiColors.StatusAttention,
                        _                           => UiColors.Text
@@ -325,7 +349,8 @@ internal static class CustomComponents
             if (wasDraggingRight)
                 return;
         }
-
+        
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(6, 6));
         ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(6, 6));
 
         if (ImGui.BeginPopupContextItem(id, flags))
@@ -347,7 +372,7 @@ internal static class CustomComponents
             ImGui.EndPopup();
         }
 
-        ImGui.PopStyleVar(1);
+        ImGui.PopStyleVar(2);
     }
 
     public static void DrawContextMenuForScrollCanvas(Action drawMenuContent, ref bool contextMenuIsOpen)
@@ -670,13 +695,13 @@ internal static class CustomComponents
         var clicked = ImGui.InvisibleButton(name, new Vector2(17, 17));
         if (!isEnabled)
         {
-            Icons.DrawIconOnLastItem(isSelected ? iconOn : iconOff, isSelected
+            Icons.DrawIconCenter(isSelected ? iconOn : iconOff, isSelected
                                                                         ? (needsAttention ? UiColors.StatusAttention : UiColors.BackgroundActive)
                                                                         : UiColors.TextDisabled.Fade(0.5f));
             return false;
         }
 
-        Icons.DrawIconOnLastItem(isSelected ? iconOn : iconOff,
+        Icons.DrawIconCenter(isSelected ? iconOn : iconOff,
                                  isSelected ? (needsAttention ? UiColors.StatusAttention : UiColors.BackgroundActive) : UiColors.TextMuted);
         if (clicked)
             isSelected = !isSelected;
@@ -687,7 +712,7 @@ internal static class CustomComponents
     public static bool DrawIconToggle(string name, Icon icon, ref bool isSelected, bool needsAttention = false)
     {
         var clicked = ImGui.InvisibleButton(name, new Vector2(17, 17));
-        Icons.DrawIconOnLastItem(icon, isSelected ? (needsAttention ? UiColors.StatusAttention : UiColors.BackgroundActive) : UiColors.TextMuted);
+        Icons.DrawIconCenter(icon, isSelected ? (needsAttention ? UiColors.StatusAttention : UiColors.BackgroundActive) : UiColors.TextMuted);
         if (clicked)
             isSelected = !isSelected;
 

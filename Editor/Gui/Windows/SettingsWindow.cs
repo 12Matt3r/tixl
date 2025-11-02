@@ -4,6 +4,7 @@ using Operators.Utils;
 using T3.Core.IO;
 using T3.Core.UserData;
 using T3.Core.Utils;
+using T3.Editor.Gui.Input;
 using T3.Editor.Gui.Interaction.Keyboard;
 using T3.Editor.Gui.Interaction.Midi;
 using T3.Editor.Gui.Styling;
@@ -37,7 +38,9 @@ internal sealed class SettingsWindow : Window
     {
         var changed = false;
 
-        ImGui.BeginChild("categories", new Vector2(120 * T3Ui.UiScaleFactor, -1), true, ImGuiWindowFlags.NoScrollbar);
+        ImGui.BeginChild("categories", new Vector2(120 * T3Ui.UiScaleFactor, -1), 
+                         true, 
+                         ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoBackground);
         {
             ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, new Vector2(0, 0.5f));
             FormInputs.AddSegmentedButtonWithLabel(ref _activeCategory, "", 110 * T3Ui.UiScaleFactor);
@@ -47,7 +50,7 @@ internal sealed class SettingsWindow : Window
 
         ImGui.SameLine();
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(20, 5));
-        ImGui.BeginChild("content", new Vector2(0, 0), true);
+        ImGui.BeginChild("content", new Vector2(0, 0), true, ImGuiWindowFlags.NoBackground);
         {
             FormInputs.SetIndentToParameters();
             switch (_activeCategory)
@@ -168,11 +171,10 @@ internal sealed class SettingsWindow : Window
                                                       "This might prevent unintended user interactions while live performing with [KeyInput] operators.",
                                                       UserSettings.Defaults.EnableKeyboardShortCuts);
                     
-                    changed |= FormInputs.AddCheckBox("Readable parameter names",
+                    changed |= FormInputs.AddCheckBox("Display names with spaces",
                                                       ref UserSettings.Config.AddSpacesToParameterNames,
                                                       """
-                                                      Insert spaces to parameters names. E.g. prints "XAxisValue" becomes "X Axis Value".
-                                                      This is purely for output formatting. If you're developing, and used to PascalCase you might not need it.
+                                                      Developers use PascalCase (XAxisValue) when coding. Turn this on to display those names with spaces (X Axis Value) for easier reading.
                                                       """,
                                                       UserSettings.Defaults.AddSpacesToParameterNames);                    
                     

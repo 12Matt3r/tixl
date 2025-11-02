@@ -149,7 +149,6 @@
         <PackageNames Include="ndi" />
         <!-- Add more as needed -->
     </ItemGroup>
-
     <PropertyGroup>
         <OperatorDirectoryName>Operators</OperatorDirectoryName>
     </PropertyGroup>

@@ -1,5 +1,6 @@
 ﻿#nullable enable
 using ImGuiNET;
+using T3.Editor.Gui.Input;
 using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.UiModel;
@@ -26,7 +27,11 @@ internal sealed class DuplicateSymbolDialog : ModalDialog
         if(selectedChildUis.Count != 1)
             return result;
 
-
+        if (selectedChildUis[0]?.SymbolChild?.Symbol == null)
+        {
+            return result;
+        }
+        
         var s = selectedChildUis[0].SymbolChild.Symbol;
         if (_selectedSymbolId != s.Id)
         {

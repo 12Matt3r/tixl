@@ -35,17 +35,26 @@ internal sealed class PlaceholderCreation
         var posOnCanvas = context.View.InverseTransformPositionFloat(ImGui.GetMousePos());
 
         var firstHover = context.ConnectionHovering.ConnectionHoversWhenClicked[0];
+        var hoverConnection = firstHover.Connection;
+
+        var outputLineIndex = hoverConnection.SourceItem.Instance?.Outputs.IndexOf(hoverConnection.SourceOutput) ?? 0;
+
+        var styleToUse = MagGraphConnection.ConnectionStyles.Unknown;
+        if (hoverConnection.Style is MagGraphConnection.ConnectionStyles.BottomToTop or MagGraphConnection.ConnectionStyles.RightToLeft)
+        {
+            styleToUse = hoverConnection.Style;
+        }
 
         // Add temp connection into placeholder...
         var tempConnectionIn = new MagGraphConnection
                                    {
-                                       Style = MagGraphConnection.ConnectionStyles.Unknown,
-                                       SourcePos = firstHover.Connection.SourcePos,
-                                       SourceItem = firstHover.Connection.SourceItem,
-                                       SourceOutput = firstHover.Connection.SourceOutput,
+                                       Style = styleToUse,
+                                       SourcePos = hoverConnection.SourcePos,
+                                       SourceItem = hoverConnection.SourceItem,
+                                       SourceOutput = hoverConnection.SourceOutput,
                                        TargetPos = default,
                                        TargetItem = null,
-                                       OutputLineIndex = 0,
+                                       OutputLineIndex = outputLineIndex,
                                        VisibleOutputIndex = 0,
                                        ConnectionHash = 0,
                                        IsTemporary = true,

@@ -2,10 +2,12 @@
 using T3.Core.SystemUi;
 using T3.Core.Utils;
 using T3.Editor.Gui.Graph.Window;
+using T3.Editor.Gui.Input;
 using T3.Editor.Gui.Interaction;
 using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.UiHelpers;
 using T3.Editor.Gui.Windows;
+using T3.Editor.Gui.Windows.SymbolLib;
 using T3.Editor.Gui.Windows.TimeLine;
 using T3.Editor.UiModel;
 using T3.Editor.UiModel.InputsAndTypes;
@@ -221,7 +223,7 @@ internal sealed class UiElements
 
         FormInputs.AddVerticalSpace(20);
         
-        ImGui.BeginChild("content", new Vector2(0, 0), true);
+        ImGui.BeginChild("content", new Vector2(0, 0), true, ImGuiWindowFlags.NoBackground);
         {
             var dl = ImGui.GetWindowDrawList();
             ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(5, 5));

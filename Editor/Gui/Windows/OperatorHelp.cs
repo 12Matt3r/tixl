@@ -7,6 +7,7 @@ using T3.Core.SystemUi;
 using T3.Core.Utils;
 using T3.Editor.Gui.Graph.Dialogs;
 using T3.Editor.Gui.Graph.Interaction;
+using T3.Editor.Gui.Input;
 using T3.Editor.Gui.Styling;
 using T3.Editor.UiModel;
 using T3.Editor.UiModel.Helpers;
@@ -303,7 +304,7 @@ internal sealed class OperatorHelp
                 if (icon.HasValue)
                 {
                     ImGui.Button("    " + title);
-                    Icons.DrawIconOnLastItem(icon.Value, UiColors.StatusAutomated, 0);
+                    Icons.DrawIconCenter(icon.Value, UiColors.StatusAutomated, 0);
                     clicked = ImGui.IsItemClicked();
                 }
                 else

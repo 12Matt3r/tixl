@@ -12,6 +12,7 @@ using T3.Core.Operator.Slots;
 using T3.Editor.Gui;
 using T3.Editor.Gui.Graph.Interaction;
 using T3.Editor.Gui.Graph.Legacy.Interaction.Connections;
+using T3.Editor.Gui.Input;
 using T3.Editor.Gui.Interaction;
 using T3.Editor.Gui.Interaction.Animation;
 using T3.Editor.Gui.Styling;
@@ -193,7 +194,7 @@ public abstract class InputValueUi<T> : IInputUi
                         // TODO: implement with proper SelectionManager
                     }
 
-                    Icons.DrawIconOnLastItem(Icon.ConnectedParameter, typeColor);
+                    Icons.DrawIconCenter(Icon.ConnectedInput, typeColor);
                     ImGui.SameLine();
 
                     ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, new Vector2(1.0f, 0.5f));
@@ -228,7 +229,7 @@ public abstract class InputValueUi<T> : IInputUi
                 // Draw Name
                 ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, new Vector2(1.0f, 0.5f));
                 ImGui.PushStyleColor(ImGuiCol.Text, UiColors.ForegroundFull.Rgba);
-                ImGui.Button(input.Name + "##ParamName", new Vector2(ParameterNameWidth, 0.0f));
+                ImGui.Button($"{input.Name.AddSpacesForImGuiOutput()}##ParamName", new Vector2(ParameterNameWidth, 0.0f));
                 ImGui.PopStyleColor();
                 if (ImGui.BeginPopupContextItem("##parameterOptions", 0))
                 {
@@ -291,7 +292,7 @@ public abstract class InputValueUi<T> : IInputUi
                 string connectedName;
                 if (typedInputSlot.TryGetFirstConnection(out var connectedSlot))
                 {
-                    connectedName = connectedSlot.Parent.Symbol.Name;
+                    connectedName = connectedSlot?.Parent.Symbol.Name ?? "???";
                 }
                 else
                 {
@@ -342,13 +343,13 @@ public abstract class InputValueUi<T> : IInputUi
                 }
             }
 
-            Icons.DrawIconOnLastItem(icon, Color.White);
+            Icons.DrawIconCenter(icon, Color.White);
 
             ImGui.SameLine();
 
             // Draw Name
             ImGui.PushStyleVar(ImGuiStyleVar.ButtonTextAlign, new Vector2(1.0f, 0.5f));
-            var isClicked = ImGui.Button(input.Name + "##ParamName", new Vector2(ParameterNameWidth, 0.0f));
+            var isClicked = ImGui.Button($"{input.Name.AddSpacesForImGuiOutput()}##ParamName", new Vector2(ParameterNameWidth, 0.0f));
             CustomComponents.ContextMenuForItem
                 (() =>
                  {
@@ -678,7 +679,7 @@ internal static class InputArea
                                _                                 => throw new ArgumentOutOfRangeException()
                            };
 
-            Icons.DrawIconOnLastItem(icon, typeColor);
+            Icons.DrawIconCenter(icon, typeColor);
         }
         else
         {
@@ -809,7 +810,7 @@ internal static class InputArea
             }
         }
 
-        Icons.DrawIconOnLastItem(Icon.ConnectedParameter, typeColor.Rgba);
+        Icons.DrawIconCenter(Icon.ConnectedInput, typeColor.Rgba);
         ImGui.SameLine();
     }
 

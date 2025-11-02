@@ -2,6 +2,7 @@
 using ImGuiNET;
 using T3.Core.Operator;
 using T3.Core.Utils;
+using T3.Editor.Gui.Input;
 using T3.Editor.Gui.OpUis;
 using T3.Editor.Gui.Styling;
 using T3.Editor.Gui.UiHelpers;
@@ -93,7 +94,7 @@ internal static class ParameterPopUp
                              true,
                              preventTabbingIntoUnfocusedStringInputs
                              | ImGuiWindowFlags.NoScrollWithMouse
-                             | ImGuiWindowFlags.NoScrollbar ))
+                             | ImGuiWindowFlags.NoScrollbar))
         {
             if (ImGui.IsKeyDown(ImGuiKey.Escape))
             {
@@ -246,7 +247,7 @@ internal static class ParameterPopUp
 
     private static readonly List<Icon> _modeIcons = new()
                                                         {
-                                                            Icon.List,
+                                                            Icon.ViewList,
                                                             Icon.Presets,
                                                             Icon.HelpOutline
                                                         };

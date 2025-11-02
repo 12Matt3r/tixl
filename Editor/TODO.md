@@ -22,7 +22,42 @@
 - [ ] Duplicate as new type should also duplicate variations and snapshot enabled ops!
 - [ ] Variations should be stored at project folder
 - [ ] !!! Indicate read-only operators
-- 
+
+- [ ] Fix: Turbulence force Amount from Velocity
+- [ ] Fix: Rename Direction "RandomAmount" -> Variation
+- [ ] Idea: Add option to switch space of SnapToAnglesForce 
+- [ ] Fix: SwitchParticleForce filtering with -1 and -2
+
+
+# Asset-Lib
+- [x] Undo/Do for changing
+- [x] Indicate hidden file reference for selected op
+- [x] Reveal hidden
+- [x] AssetsTypeRegistry
+- [x] Indicate matching types
+- [x] Drag and Drop to Graph
+  - [x] Link Image -> [LoadImage]
+- [ ] Toolbar
+  - [x] Collapse all
+  - [ ] Context menu
+    - [ ] Action...
+      - [ ] Review in Explorer
+      - [ ] Edit externally
+      - [ ] Delete
+      - [ ] Add to graph -> Create and select op
+      - [ ] Later: find references
+      - [ ] Group selecting into Folder
+      - [ ] Create Folder
+    - [ ] Filter with counts
+      - [ ] List derived from AssetTypeRegistry
+- [ ] Select multiple (e.g. Shift)
+- [ ] Keyboard navigation Up/Down Left/Right for collapse
+- [ ] Search / Filter
+- [ ] Show preview on hover?
+
+
+
+
 
 
 # UI
@@ -34,7 +69,16 @@
 - [ ] Idea: bookmark / navigation panel
 - [ ] Snapshots: Somehow fix usecase "update set this parameter for these snapshots"
 - [ ] Snapshots: Layout snapshots like on Controller
-- [ ] 
+- [ ] Fix: Raymarch point
+
+## Feedback from Alex 2
+- [ ] Try to get rid of console
+- [ ] Import / Load projects to library 
+- [x] Press P again to unpin
+- [ ] Provide warning if project folder is owned by OneCloud
+- [ ] AssetHandling: Import multiple assets or even folders through drag&drop
+- [ ] Idea: Op templates?
+- [ ] Idea: Cursor Up/Down in parameter input widget to modify numerical values
 
 ## Project handling / Project HUB
 
@@ -51,6 +95,7 @@
 - [ ] Panning/Zooming in CurveEdit-Popup opened from SampleCurveOp is broken 
 - [ ] Create connections from dragging out of parameter window
 - [ ] Refactor IStatusMessageProvider "Success" indication #714
+- [ ] Add shortcut to insert op on the right side
 
 ## UI-Scaling Issues (at x1.5):
 
@@ -72,7 +117,8 @@
 - [ ] Deprecate DrawPoints2
 - [ ] Cleanup *-template.hlsl -> -gs.hlsl
 - [ ] [Set-] and [BlendSnapshots] (see API mock examples)
-    
+- [ ] ExecuteTextureUpdate should be a multiInput 
+   
 ### Particles
 - [ ] Provide optional reference to points in [GetParticleComponents]
 - 
